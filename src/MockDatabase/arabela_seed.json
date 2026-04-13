@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>System Settings | Arabela Admin</title>
     <script src="js/database.js"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <script>
       if (localStorage.getItem('arabela_session_active') !== 'true') {
         window.location.replace('login.html');
@@ -18,10 +17,11 @@
   </head>
   <body
     x-data="{ 
-      sidebarToggle: false,
-      isSaving: false,
+      'sidebarToggle': false,
+      'isSaving': false,
       
-      config: JSON.parse(localStorage.getItem('arabela_config')) || {
+      // PERSISTENCE: Initialize from storage or use capstone defaults
+      'config': JSON.parse(localStorage.getItem('arabela_config')) || {
         depositAmount: 2000,
         lateFeePerDay: 200,
         paymentWindowHours: 48,
@@ -35,7 +35,7 @@
         setTimeout(() => {
           localStorage.setItem('arabela_config', JSON.stringify(this.config));
           this.isSaving = false;
-          alert('SYSTEM: Parameters synchronized. Rules applied to global state.');
+          alert('System parameters successfully updated. Rules apply to all future transactions.');
         }, 800);
       },
 
@@ -60,36 +60,19 @@
       importData(event) {
         const file = event.target.files[0];
         if (!file) return;
-
-        if (!confirm('CRITICAL: This will overwrite all current system data. Proceed?')) {
-          event.target.value = '';
-          return;
-        }
-
         const reader = new FileReader();
         reader.onload = (e) => {
           try {
             const data = JSON.parse(e.target.result);
-            const keys = {
-              'config': 'arabela_config',
-              'gowns': 'arabela_gowns',
-              'reservations': 'arabela_reservations',
-              'client_status': 'arabela_client_status',
-              'client_phones': 'arabela_client_phones',
-              'client_notes': 'arabela_client_notes'
-            };
-
-            Object.keys(keys).forEach(key => {
-              if (data[key]) {
-                localStorage.setItem(keys[key], JSON.stringify(data[key]));
-              }
-            });
-
+            if (data.config) localStorage.setItem('arabela_config', JSON.stringify(data.config));
+            if (data.gowns) localStorage.setItem('arabela_gowns', JSON.stringify(data.gowns));
+            if (data.reservations) localStorage.setItem('arabela_reservations', JSON.stringify(data.reservations));
+            if (data.client_status) localStorage.setItem('arabela_client_status', JSON.stringify(data.client_status));
             localStorage.setItem('arabela_session_active', 'true');
-            alert('RESTORATION SUCCESSFUL: State restored. Reloading interface...');
+            alert('Database restored successfully. Reloading...');
             window.location.reload();
           } catch (err) {
-            alert('ERROR: Invalid or corrupted backup file.');
+            alert('Error: Invalid backup file.');
           }
         };
         reader.readAsText(file);
