@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Notification Center | Arabela Admin</title>
+    <script src="js/database.js"></script>
+    <style>
+      .font-serif { font-family: 'Times', serif; }
+      [x-cloak] { display: none !important; }
+    </style>
+  </head>
+  <body
+    x-data="{ 
+      'sidebarToggle': false,
+      'reservations': ArabelaDB.getReservations(),
+      
+      // Filter for notifications that need sending
+      get pendingAlerts() {
+        return this.reservations.filter(r => r.status === 'Pending' || r.status === 'On Rent');
+      },
+
+      sendAlert(name, type) {
+        alert(`PROTOCOL INITIATED: ${type} alert sent to ${name} via SMS/Email.`);
+      }
+    }"
+    class="bg-white font-sans text-[#1A1A1A]"
+  >
+    <div class="flex h-screen overflow-hidden bg-white">
+      <include src="./partials/sidebar.html"></include>
+
+      <div class="relative flex flex-col flex-1 overflow-x-hidden overflow-y-auto bg-white">
+        <include src="./partials/header.html" />
+
+        <main>
+          <div class="p-6 mx-auto max-w-(--breakpoint-2xl) md:p-10">
+            
+            <div class="mb-10 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between border-b border-[#F0EDE7] pb-8">
+              <div>
+                <h2 class="text-3xl font-bold uppercase tracking-[0.2em] font-serif">Notification Center</h2>
+                <p class="text-[10px] text-[#A8A297] font-bold uppercase tracking-[0.3em] mt-2">Automated Messaging & Client Communication</p>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-12 gap-8">
+              <div class="col-span-12 lg:col-span-4 space-y-6">
+                <h3 class="text-xs font-serif font-bold uppercase tracking-[0.2em] border-b pb-4">Message Templates</h3>
+                
+                <div class="p-6 bg-[#F9F5F0] border border-[#E5E1DA] rounded-sm">
+                  <p class="text-[9px] font-black text-[#A8A297] uppercase mb-2">Payment Reminder</p>
+                  <p class="text-[10px] leading-relaxed italic text-[#1A1A1A]">
+                    "Dear [Name], your reservation for [Gown] is held for 3 hours. Please settle the deposit to confirm."
+                  </p>
+                </div>
+
+                <div class="p-6 bg-[#F9F5F0] border border-[#E5E1DA] rounded-sm">
+                  <p class="text-[9px] font-black text-[#A8A297] uppercase mb-2">Late Return Warning</p>
+                  <p class="text-[10px] leading-relaxed italic text-[#1A1A1A]">
+                    "URGENT: Your rental is past the deadline. Daily penalties of ₱200 are now being applied."
+                  </p>
+                </div>
+              </div>
+
+              <div class="col-span-12 lg:col-span-8 rounded-sm border border-[#E5E1DA] bg-white shadow-sm overflow-hidden">
+                <div class="bg-[#F9F5F0] p-4 border-b border-[#E5E1DA]">
+                  <h3 class="text-[10px] font-black uppercase tracking-widest text-[#1A1A1A]">Pending Communication Queue</h3>
+                </div>
+
+                <div class="divide-y divide-[#F0EDE7]">
+                  <template x-for="res in pendingAlerts" :key="res.id">
+                    <div class="p-6 flex items-center justify-between hover:bg-gray-50 transition-colors">
+                      <div>
+                        <p class="text-sm font-bold text-[#1A1A1A]" x-text="res.name"></p>
+                        <p class="text-[9px] text-[#A8A297] font-bold uppercase mt-1" 
+                           x-text="res.status === 'Pending' ? 'Action: Awaiting Deposit' : 'Action: Track Return'"></p>
+                      </div>
+                      
+                      <div class="flex gap-3">
+                        <button @click="sendAlert(res.name, 'Follow-up')" 
+                                class="border border-[#1A1A1A] text-[#1A1A1A] px-4 py-2 text-[8px] font-black uppercase tracking-widest hover:bg-[#1A1A1A] hover:text-white transition-all">
+                          Send SMS
+                        </button>
+                        <button @click="sendAlert(res.name, 'Final')" 
+                                class="bg-[#1A1A1A] text-white px-4 py-2 text-[8px] font-black uppercase tracking-widest hover:bg-opacity-80 transition-all">
+                          Send Email
+                        </button>
+                      </div>
+                    </div>
+                  </template>
+
+                  <template x-if="pendingAlerts.length === 0">
+                    <div class="p-20 text-center">
+                      <p class="text-[10px] text-[#A8A297] font-bold uppercase tracking-[0.3em]">Communication Queue Clear</p>
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </main>
+      </div>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Active Rentals | Arabela Admin</title>
+    <script src="js/database.js"></script>
+    <style>
+      .font-serif { font-family: 'Times', serif; }
+      [x-cloak] { display: none !important; }
+    </style>
+  </head>
+  <body
+    x-data="{ 
+      'sidebarToggle': false,
+      'showReturnModal': false,
+      'selectedRes': null,
+      'reservations': ArabelaDB.getReservations(),
+      'returnDetails': { condition: 'Good', surcharge: 0 },
+      
+      get activeRentals() {
+        return this.reservations.filter(r => r.status === 'On Rent');
+      },
+
+      getPenaltyData(deadline) {
+        if (!deadline) return { status: 'On Time', cost: 0, isLate: false };
+        const today = new Date();
+        const due = new Date(deadline);
+        today.setHours(0,0,0,0);
+        due.setHours(0,0,0,0);
+        
+        if (today > due) {
+          const diff = Math.ceil((today - due) / (1000 * 60 * 60 * 24));
+          return { status: 'Late', cost: diff * 200, isLate: true };
+        }
+        return { status: 'On Time', cost: 0, isLate: false };
+      },
+
+      initiateReturn(res) {
+        this.selectedRes = res;
+        const penalty = this.getPenaltyData(res.deadline);
+        this.returnDetails.surcharge = penalty.cost;
+        this.showReturnModal = true;
+      },
+
+      finalizeReturn() {
+        // 1. Update Reservation Record
+        this.selectedRes.status = 'Completed';
+        this.selectedRes.finalFine = this.returnDetails.surcharge;
+        this.selectedRes.returnDate = new Date().toISOString();
+        
+        // CRITICAL FIX: Bind the condition to the database object
+        this.selectedRes.returnCondition = this.returnDetails.condition;
+        
+        ArabelaDB.saveReservations(this.reservations);
+
+        // 2. Update Asset Status (Route to Maintenance if damaged)
+        if (this.returnDetails.condition === 'Damaged' || this.returnDetails.condition === 'Stained') {
+          ArabelaDB.syncGownStatus(this.selectedRes.gownId, 'Damaged');
+        } else {
+          ArabelaDB.syncGownStatus(this.selectedRes.gownId, 'Available');
+        }
+
+        this.showReturnModal = false;
+        location.reload();
+      }
+    }"
+    class="bg-white font-sans"
+  >
+    <div class="flex h-screen overflow-hidden bg-white">
+      <include src="./partials/sidebar.html"></include>
+
+      <div class="relative flex flex-col flex-1 overflow-x-hidden overflow-y-auto bg-white">
+        <include src="./partials/header.html" />
+
+        <main>
+          <div class="p-6 mx-auto max-w-(--breakpoint-2xl) md:p-10">
+            
+            <div class="mb-10">
+              <h2 class="text-3xl font-bold text-[#1A1A1A] uppercase tracking-[0.2em] font-serif">Active Rentals</h2>
+              <p class="text-[10px] text-[#A8A297] font-bold uppercase tracking-[0.3em] mt-2">Deployed Asset Monitoring & Penalty Tracking</p>
+            </div>
+
+            <div class="rounded-sm border border-[#E5E1DA] bg-white shadow-sm overflow-x-auto">
+              <div class="flex flex-col min-w-[1100px]">
+                
+                <div class="grid grid-cols-12 bg-[#F9F5F0] border-b border-[#E5E1DA] text-[11px] font-bold uppercase tracking-[0.2em] text-[#A8A297]">
+                  <div class="p-6 col-span-3">Customer Details</div>
+                  <div class="p-6 col-span-2">Item Identity</div>
+                  <div class="p-6 col-span-3 text-center">Rental Duration</div>
+                  <div class="p-6 col-span-2 text-center">Status & Fines</div>
+                  <div class="p-6 col-span-2 text-center">Final Action</div>
+                </div>
+
+                <template x-for="res in activeRentals" :key="res.id">
+                  <div class="grid grid-cols-12 border-b border-[#F0EDE7] items-center hover:bg-[#F9F5F0]/30 transition-colors">
+                    
+                    <div class="p-8 col-span-3">
+                      <p class="text-lg font-bold text-[#1A1A1A] mb-1" x-text="res.name"></p>
+                      <p class="text-[10px] text-[#A8A297] font-black uppercase tracking-[0.15em]" x-text="'REF NO: ARB-' + res.id"></p>
+                    </div>
+
+                    <div class="p-8 col-span-2">
+                      <p class="text-sm font-semibold text-[#1A1A1A] mb-1" x-text="res.gown"></p>
+                      <p class="text-[10px] text-[#A8A297] font-black uppercase tracking-wider" x-text="'ID: #' + res.gownId"></p>
+                    </div>
+
+                    <div class="p-8 col-span-3 text-center">
+                      <div class="inline-flex items-center gap-8 px-8 py-3 bg-[#F9F5F0] rounded-sm border border-[#E5E1DA]">
+                        <div class="text-left">
+                          <p class="text-[#A8A297] uppercase font-bold text-[8px] tracking-tighter mb-1">Released</p>
+                          <p class="font-bold text-xs text-[#1A1A1A]" x-text="new Date(res.createdAt).toLocaleDateString('en-GB')"></p>
+                        </div>
+                        <div class="h-10 border-l border-[#E5E1DA]"></div>
+                        <div class="text-left">
+                          <p class="text-[#A8A297] uppercase font-bold text-[8px] tracking-tighter mb-1">Return</p>
+                          <p class="font-bold text-xs text-[#1A1A1A]" x-text="new Date(res.deadline).toLocaleDateString('en-GB')"></p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="p-8 col-span-2 text-center">
+                      <div class="flex flex-col items-center gap-2">
+                        <span :class="getPenaltyData(res.deadline).isLate ? 'bg-red-50 text-red-600 border-red-200' : 'bg-green-50 text-green-600 border-green-200'" 
+                              class="text-[10px] font-black uppercase tracking-widest border px-4 py-1.5 rounded shadow-sm"
+                              x-text="getPenaltyData(res.deadline).status">
+                        </span>
+                        <p class="text-xl font-black mt-1" 
+                           :class="getPenaltyData(res.deadline).isLate ? 'text-red-600' : 'text-[#1A1A1A]'"
+                           x-text="'₱' + getPenaltyData(res.deadline).cost">
+                        </p>
+                      </div>
+                    </div>
+
+                    <div class="p-8 col-span-2 text-center">
+                      <button @click="initiateReturn(res)" class="w-full bg-[#1A1A1A] text-white text-[10px] font-bold uppercase tracking-[0.2em] py-4 rounded shadow-md hover:bg-opacity-80 transition-all active:scale-95">
+                        Process Return
+                      </button>
+                    </div>
+
+                  </div>
+                </template>
+
+                <template x-if="activeRentals.length === 0">
+                  <div class="p-32 text-center">
+                    <p class="text-[11px] text-[#A8A297] font-bold uppercase tracking-[0.4em]">No gowns are currently deployed.</p>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <div x-show="showReturnModal" class="fixed inset-0 z-999 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4" x-cloak>
+      <div @click.outside="showReturnModal = false" class="w-full max-w-md bg-white p-10 rounded shadow-2xl">
+        <h3 class="text-center font-serif font-bold text-[#1A1A1A] uppercase tracking-[0.2em] mb-8 text-xl">Final Inspection</h3>
+        
+        <div class="space-y-6">
+          <div>
+            <label class="block text-[10px] font-bold text-[#A8A297] uppercase mb-2 tracking-widest">Item Condition</label>
+            <select x-model="returnDetails.condition" class="w-full border border-[#E5E1DA] p-4 text-sm outline-none focus:border-[#1A1A1A]">
+              <option value="Good">Excellent / Good</option>
+              <option value="Stained">Stained (Cleaning Fee)</option>
+              <option value="Damaged">Damaged (Repair Fee)</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-[10px] font-bold text-[#A8A297] uppercase mb-2 tracking-widest">Total Collection (Fine + Surcharges)</label>
+            <div class="relative">
+              <span class="absolute left-4 top-4 font-bold">₱</span>
+              <input type="number" x-model="returnDetails.surcharge" class="w-full border border-[#E5E1DA] p-4 pl-10 text-lg font-bold outline-none focus:border-[#1A1A1A]">
+            </div>
+          </div>
+        </div>
+
+        <div class="flex gap-4 mt-10">
+          <button @click="showReturnModal = false" class="flex-1 border border-[#E5E1DA] p-4 text-[10px] font-bold uppercase tracking-widest hover:bg-gray-50">Cancel</button>
+          <button @click="finalizeReturn()" class="flex-1 bg-[#1A1A1A] text-white p-4 text-[10px] font-bold uppercase tracking-widest hover:bg-opacity-90">Confirm & Restock</button>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

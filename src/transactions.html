@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Transaction Logs | Arabela Admin</title>
+    <script src="js/database.js"></script>
+    <style>
+      .font-serif { font-family: 'Times', serif; }
+    </style>
+  </head>
+  <body
+    x-data="{ 
+      'sidebarToggle': false,
+      'reservations': ArabelaDB.getReservations(),
+      
+      get transactionHistory() {
+        return this.reservations.filter(r => r.status === 'Completed' || r.status === 'Canceled');
+      },
+
+      get totalRevenue() {
+        return this.transactionHistory
+          .filter(r => r.status === 'Completed')
+          .reduce((sum, r) => sum + (Number(r.deposit) || 0) + (Number(r.finalFine) || 0), 0);
+      }
+    }"
+    class="bg-white font-sans"
+  >
+    <div class="flex h-screen overflow-hidden bg-white">
+      <include src="./partials/sidebar.html"></include>
+
+      <div class="relative flex flex-col flex-1 overflow-x-hidden overflow-y-auto bg-white">
+        <include src="./partials/header.html" />
+
+        <main>
+          <div class="p-6 mx-auto max-w-(--breakpoint-2xl) md:p-10">
+            
+            <div class="mb-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 class="text-3xl font-bold text-[#1A1A1A] uppercase tracking-[0.2em] font-serif">Transaction Logs</h2>
+                <p class="text-[10px] text-[#A8A297] font-bold uppercase tracking-[0.3em] mt-2">Archived Records & Revenue History</p>
+              </div>
+              <div class="bg-[#F9F5F0] border border-[#E5E1DA] px-8 py-4 rounded-sm text-center">
+                <p class="text-[9px] text-[#A8A297] font-black uppercase tracking-widest mb-1">Total Revenue Logged</p>
+                <p class="text-2xl font-black text-[#1A1A1A]" x-text="'₱' + totalRevenue.toLocaleString()"></p>
+              </div>
+            </div>
+
+            <div class="rounded-sm border border-[#E5E1DA] bg-white shadow-sm overflow-x-auto">
+              <div class="flex flex-col min-w-[1100px]">
+                
+                <div class="grid grid-cols-12 bg-[#F9F5F0] border-b border-[#E5E1DA] text-[11px] font-bold uppercase tracking-[0.2em] text-[#A8A297]">
+                  <div class="p-6 col-span-3">Customer & Reference</div>
+                  <div class="p-6 col-span-2 text-center">Item Returned</div>
+                  <div class="p-6 col-span-2 text-center">Return Date</div>
+                  <div class="p-6 col-span-2 text-center">Condition</div>
+                  <div class="p-6 col-span-2 text-center">Total Collection</div>
+                  <div class="p-6 col-span-1 text-center">Status</div>
+                </div>
+
+                <template x-for="res in transactionHistory" :key="res.id">
+                  <div class="grid grid-cols-12 border-b border-[#F0EDE7] items-center hover:bg-[#F9F5F0]/30 transition-colors">
+                    
+                    <div class="p-8 col-span-3">
+                      <p class="text-lg font-bold text-[#1A1A1A] mb-1" x-text="res.name"></p>
+                      <p class="text-[10px] text-[#A8A297] font-black uppercase tracking-widest" x-text="'TRANS ID: ' + res.id"></p>
+                    </div>
+
+                    <div class="p-8 col-span-2 text-center">
+                      <p class="text-sm font-semibold text-[#1A1A1A]" x-text="res.gown"></p>
+                    </div>
+
+                    <div class="p-8 col-span-2 text-center">
+                      <p class="text-xs font-bold text-[#1A1A1A]" x-text="res.returnDate ? new Date(res.returnDate).toLocaleDateString('en-GB') : '---'"></p>
+                    </div>
+
+                    <div class="p-8 col-span-2 text-center">
+                      <span class="text-[9px] font-black uppercase tracking-widest border px-3 py-1 rounded"
+                            :class="{
+                              'text-green-600 border-green-200 bg-green-50': res.returnCondition === 'Good' || res.returnCondition === 'Excellent / Good',
+                              'text-red-600 border-red-200 bg-red-50': res.returnCondition === 'Damaged' || res.returnCondition === 'Stained',
+                              'text-[#A8A297] border-[#E5E1DA] bg-[#F9F5F0]': !res.returnCondition || res.returnCondition === 'N/A'
+                            }"
+                            x-text="res.returnCondition || 'N/A'"></span>
+                    </div>
+
+                    <div class="p-8 col-span-2 text-center">
+                      <p class="text-lg font-black text-[#1A1A1A]" x-text="'₱' + (Number(res.deposit || 0) + Number(res.finalFine || 0)).toLocaleString()"></p>
+                      <p class="text-[9px] text-[#A8A297] font-bold uppercase" x-text="'Fine: ₱' + (res.finalFine || 0)"></p>
+                    </div>
+
+                    <div class="p-8 col-span-1 text-center">
+                      <p class="text-[10px] font-black uppercase tracking-tighter" 
+                         :class="res.status === 'Completed' ? 'text-green-600' : 'text-red-600'"
+                         x-text="res.status"></p>
+                    </div>
+
+                  </div>
+                </template>
+
+                <template x-if="transactionHistory.length === 0">
+                  <div class="p-32 text-center">
+                    <p class="text-[11px] text-[#A8A297] font-bold uppercase tracking-[0.4em]">No completed transactions found.</p>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+  </body>
+</html>

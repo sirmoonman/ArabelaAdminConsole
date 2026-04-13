@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Asset Inventory | Arabela Admin</title>
+    <script src="js/database.js"></script>
+    <script>
+      // Security Guard: Kick to login if session missing
+      if (localStorage.getItem('arabela_session_active') !== 'true') {
+        window.location.replace('login.html');
+      }
+    </script>
+    <style>
+      .font-serif { font-family: 'Times', serif; }
+      [x-cloak] { display: none !important; }
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+    </style>
+  </head>
+  <body
+    x-data="{ 
+      'sidebarToggle': false,
+      'showModal': false,
+      'gowns': [],
+      'statusFilter': 'All',
+      'searchQuery': '',
+      'newGown': { name: '', size: 'Free Size', category: 'Standard' },
+
+      init() {
+        this.gowns = ArabelaDB.getGowns();
+      },
+
+      get filteredGowns() {
+        return this.gowns.filter(g => {
+          const matchStatus = this.statusFilter === 'All' || g.status === this.statusFilter;
+          const matchSearch = g.name.toLowerCase().includes(this.searchQuery.toLowerCase()) || 
+                              g.id.toLowerCase().includes(this.searchQuery.toLowerCase());
+          return matchStatus && matchSearch;
+        });
+      },
+
+      saveGown() {
+        if (!this.newGown.name) return alert('Design name is required');
+        
+        const newId = 'ARB-' + Math.floor(1000 + Math.random() * 9000);
+        const entry = {
+          id: newId,
+          name: this.newGown.name,
+          size: this.newGown.size,
+          category: this.newGown.category,
+          status: 'Available'
+        };
+
+        // Fix: Update local array and database simultaneously
+        this.gowns = [...this.gowns, entry];
+        ArabelaDB.saveGowns(this.gowns);
+        
+        this.showModal = false;
+        this.newGown = { name: '', size: 'Free Size', category: 'Standard' };
+      },
+
+      updateStatus(gown, newStatus) {
+        if (!newStatus) return;
+        gown.status = newStatus;
+        ArabelaDB.saveGowns(this.gowns);
+        // Refresh local gowns to ensure reactivity
+        this.gowns = ArabelaDB.getGowns();
+      },
+
+      deleteGown(id) {
+        if(confirm('Permanently delete this asset from the database?')) {
+          this.gowns = this.gowns.filter(g => g.id !== id);
+          ArabelaDB.saveGowns(this.gowns);
+        }
+      }
+    }"
+    class="bg-white font-sans text-[#1A1A1A]"
+  >
+    <div class="flex h-screen overflow-hidden bg-white">
+      
+      <include src="./partials/sidebar.html"></include>
+
+      <div class="relative flex flex-col flex-1 overflow-x-hidden overflow-y-auto bg-white">
+        
+        <include src="./partials/header.html" />
+
+        <main>
+          <div class="p-6 mx-auto max-w-(--breakpoint-2xl) md:p-10">
+            
+            <div class="mb-10 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between border-b border-[#F0EDE7] pb-8">
+              <div>
+                <h2 class="text-3xl font-bold uppercase tracking-[0.2em] font-serif">Gown Inventory</h2>
+                <p class="text-[10px] text-[#A8A297] font-bold uppercase tracking-[0.3em] mt-2">Asset Masterlist & Status Control</p>
+              </div>
+              <button @click="showModal = true" class="bg-[#1A1A1A] text-white px-8 py-3 text-[10px] font-bold uppercase tracking-[0.2em] rounded shadow-lg hover:bg-opacity-90 active:scale-95 transition-all">
+                + Register New Asset
+              </button>
+            </div>
+
+            <div class="mb-8 flex flex-col md:flex-row gap-6 justify-between items-center bg-[#F9F5F0] p-4 border border-[#E5E1DA] rounded-sm">
+              <div class="flex gap-4 w-full md:w-auto">
+                <select x-model="statusFilter" class="bg-white border border-[#E5E1DA] p-3 text-[10px] font-bold uppercase tracking-widest outline-none focus:border-[#1A1A1A] min-w-[180px]">
+                  <option value="All">All Assets</option>
+                  <option value="Available">Available Only</option>
+                  <option value="Reserved">Reserved</option>
+                  <option value="On Rent">Currently Deployed</option>
+                  <option value="Damaged">Maintenance / Damaged</option>
+                </select>
+              </div>
+              <div class="w-full md:w-1/3">
+                <input type="text" x-model="searchQuery" placeholder="Search by ID or Name..." class="w-full bg-white border border-[#E5E1DA] p-3 text-[10px] font-bold uppercase tracking-widest outline-none focus:border-[#1A1A1A] placeholder-[#A8A297]">
+              </div>
+            </div>
+
+            <div class="rounded-sm border border-[#E5E1DA] bg-white shadow-sm overflow-x-auto">
+              <div class="flex flex-col min-w-[1100px]">
+                
+                <div class="grid grid-cols-12 bg-[#F9F5F0] border-b border-[#E5E1DA] text-[11px] font-bold uppercase tracking-[0.2em] text-[#A8A297]">
+                  <div class="p-6 col-span-3">Asset Identity</div>
+                  <div class="p-6 col-span-2 text-center">Category</div>
+                  <div class="p-6 col-span-2 text-center">Size Details</div>
+                  <div class="p-6 col-span-2 text-center">Current Status</div>
+                  <div class="p-6 col-span-3 text-center">Control Actions</div>
+                </div>
+
+                <template x-for="gown in filteredGowns" :key="gown.id">
+                  <div class="grid grid-cols-12 border-b border-[#F0EDE7] items-center hover:bg-[#F9F5F0]/30 transition-colors">
+                    
+                    <div class="p-8 col-span-3">
+                      <p class="text-lg font-bold text-[#1A1A1A] mb-1" x-text="gown.name"></p>
+                      <p class="text-[10px] text-[#A8A297] font-black uppercase tracking-widest" x-text="gown.id"></p>
+                    </div>
+
+                    <div class="p-8 col-span-2 text-center">
+                      <p class="text-[10px] font-black text-[#1A1A1A] uppercase tracking-widest border border-[#E5E1DA] py-1 px-3 inline-block rounded" x-text="gown.category || 'Standard'"></p>
+                    </div>
+
+                    <div class="p-8 col-span-2 text-center">
+                      <p class="text-xs font-bold text-[#1A1A1A]" x-text="gown.size"></p>
+                    </div>
+
+                    <div class="p-8 col-span-2 text-center">
+                      <span class="text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded border"
+                            :class="{
+                              'bg-green-50 text-green-600 border-green-200': gown.status === 'Available',
+                              'bg-yellow-50 text-yellow-600 border-yellow-200': gown.status === 'Reserved',
+                              'bg-blue-50 text-blue-600 border-blue-200': gown.status === 'On Rent',
+                              'bg-red-50 text-red-600 border-red-200': gown.status === 'Damaged'
+                            }"
+                            x-text="gown.status"></span>
+                    </div>
+
+                    <div class="p-8 col-span-3 flex justify-center gap-3">
+                      <template x-if="gown.status !== 'On Rent' && gown.status !== 'Reserved'">
+                        <select @change="updateStatus(gown, $event.target.value)" class="border border-[#E5E1DA] text-[9px] font-bold uppercase tracking-widest p-2 outline-none cursor-pointer hover:border-[#1A1A1A]">
+                          <option value="">Update State</option>
+                          <option value="Available" :disabled="gown.status === 'Available'">Mark Available</option>
+                          <option value="Damaged" :disabled="gown.status === 'Damaged'">Send to Maintenance</option>
+                        </select>
+                      </template>
+                      
+                      <template x-if="gown.status !== 'On Rent' && gown.status !== 'Reserved'">
+                        <button @click="deleteGown(gown.id)" class="bg-red-50 text-red-600 border border-red-200 px-4 py-2 text-[9px] font-bold uppercase tracking-widest hover:bg-red-600 hover:text-white transition-colors">
+                          Drop
+                        </button>
+                      </template>
+                      
+                      <template x-if="gown.status === 'On Rent' || gown.status === 'Reserved'">
+                        <p class="text-[8px] text-[#A8A297] font-bold uppercase tracking-widest italic">Asset Locked</p>
+                      </template>
+                    </div>
+
+                  </div>
+                </template>
+
+                <template x-if="filteredGowns.length === 0">
+                  <div class="p-32 text-center">
+                    <p class="text-[11px] text-[#A8A297] font-bold uppercase tracking-[0.4em]">No matching assets found in the vault.</p>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <div x-show="showModal" class="fixed inset-0 z-999 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" x-cloak x-transition>
+      <div @click.outside="showModal = false" class="w-full max-w-md bg-white p-10 rounded shadow-2xl">
+        <h3 class="text-center font-serif font-bold text-[#1A1A1A] uppercase tracking-[0.2em] mb-8 text-xl">Asset Registration</h3>
+        <form @submit.prevent="saveGown()">
+          <div class="mb-6">
+            <label class="block text-[10px] font-bold text-[#A8A297] uppercase mb-2 tracking-widest">Gown Design Name</label>
+            <input x-model="newGown.name" type="text" required class="w-full border border-[#E5E1DA] p-4 text-sm focus:border-[#1A1A1A] outline-none" placeholder="e.g. Royal Ivory Collection">
+          </div>
+          <div class="mb-6">
+            <label class="block text-[10px] font-bold text-[#A8A297] uppercase mb-2 tracking-widest">Category</label>
+            <select x-model="newGown.category" class="w-full border border-[#E5E1DA] p-4 text-sm outline-none focus:border-[#1A1A1A] bg-transparent">
+              <option value="Wedding">Wedding</option>
+              <option value="Debut">Debut</option>
+              <option value="Formal">Formal / Evening</option>
+              <option value="Standard">Standard Rent</option>
+            </select>
+          </div>
+          <div class="mb-10">
+            <label class="block text-[10px] font-bold text-[#A8A297] uppercase mb-2 tracking-widest">Physical Size</label>
+            <select x-model="newGown.size" class="w-full border border-[#E5E1DA] p-4 text-sm outline-none focus:border-[#1A1A1A] bg-transparent">
+              <option value="Small">Small</option>
+              <option value="Medium">Medium</option>
+              <option value="Large">Large</option>
+              <option value="Free Size">Free Size</option>
+              <option value="Custom Fit">Custom Fit</option>
+            </select>
+          </div>
+          <div class="flex gap-4">
+            <button type="button" @click="showModal = false" class="flex-1 border border-[#E5E1DA] p-4 text-[10px] font-bold uppercase tracking-widest hover:bg-gray-50">Cancel</button>
+            <button type="submit" class="flex-1 bg-[#1A1A1A] text-white p-4 text-[10px] font-bold uppercase tracking-widest shadow-md hover:bg-opacity-90">Register Asset</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </body>
+</html>

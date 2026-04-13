@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Client Directory | Arabela Admin</title>
+    <script src="js/database.js"></script>
+    <style>
+      .font-serif { font-family: 'Times', serif; }
+      [x-cloak] { display: none !important; }
+    </style>
+  </head>
+  <body
+    x-data="{ 
+      'sidebarToggle': false,
+      'reservations': ArabelaDB.getReservations(),
+      'clientStatuses': JSON.parse(localStorage.getItem('arabela_client_status')) || {},
+      
+      // Dynamic CRM Generation
+      get clients() {
+        const clientMap = {};
+        
+        this.reservations.forEach(r => {
+          if (!clientMap[r.name]) {
+            clientMap[r.name] = {
+              id: 'C-' + r.name.substring(0,3).toUpperCase() + r.id.toString().substring(0,3),
+              name: r.name,
+              phone: 'Record on File',
+              totalRents: 0,
+              cancellations: 0,
+              status: this.clientStatuses[r.name] || 'Active'
+            };
+          }
+          
+          if (r.status === 'Completed' || r.status === 'On Rent' || r.status === 'Approved') {
+            clientMap[r.name].totalRents++;
+          }
+          if (r.status === 'Canceled') {
+            clientMap[r.name].cancellations++;
+          }
+        });
+
+        // Auto-Flagging Logic
+        Object.values(clientMap).forEach(client => {
+          if (client.cancellations > 2 && client.status === 'Active') {
+             client.status = 'Warning';
+             this.clientStatuses[client.name] = 'Warning';
+             this.saveStatuses();
+          }
+        });
+
+        return Object.values(clientMap);
+      },
+
+      saveStatuses() {
+        localStorage.setItem('arabela_client_status', JSON.stringify(this.clientStatuses));
+      },
+
+      toggleRestriction(client) {
+        if (client.status === 'Restricted') {
+          this.clientStatuses[client.name] = 'Active';
+        } else {
+          this.clientStatuses[client.name] = 'Restricted';
+        }
+        this.saveStatuses();
+      },
+
+      issueWarning(client) {
+        if (client.status !== 'Restricted') {
+          this.clientStatuses[client.name] = 'Warning';
+          this.saveStatuses();
+          alert('Warning protocol initiated for ' + client.name);
+        }
+      }
+    }"
+    class="bg-white font-sans text-[#1A1A1A]"
+  >
+    <div class="flex h-screen overflow-hidden bg-white">
+      <include src="./partials/sidebar.html"></include>
+
+      <div class="relative flex flex-col flex-1 overflow-x-hidden overflow-y-auto bg-white">
+        <include src="./partials/header.html" />
+
+        <main>
+          <div class="p-6 mx-auto max-w-(--breakpoint-2xl) md:p-10">
+            
+            <div class="mb-10 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between border-b border-[#F0EDE7] pb-8">
+              <div>
+                <h2 class="text-3xl font-bold uppercase tracking-[0.2em] font-serif">Client Directory</h2>
+                <p class="text-[10px] text-[#A8A297] font-bold uppercase tracking-[0.3em] mt-2">Customer Relations & Abuse Monitoring</p>
+              </div>
+              <div class="flex gap-4">
+                <div class="bg-red-50 text-red-700 px-6 py-3 rounded-sm text-center border border-red-100">
+                  <p class="text-[8px] font-black uppercase tracking-widest mb-1">Restricted Accounts</p>
+                  <p class="text-xl font-black" x-text="clients.filter(c => c.status === 'Restricted').length"></p>
+                </div>
+                <div class="bg-[#F9F5F0] border border-[#E5E1DA] px-6 py-3 rounded-sm text-center">
+                  <p class="text-[8px] text-[#A8A297] font-black uppercase tracking-widest mb-1">Total Database</p>
+                  <p class="text-xl font-black text-[#1A1A1A]" x-text="clients.length"></p>
+                </div>
+              </div>
+            </div>
+
+            <div class="rounded-sm border border-[#E5E1DA] bg-white shadow-sm overflow-x-auto">
+              <div class="flex flex-col min-w-[1100px]">
+                
+                <div class="grid grid-cols-12 bg-[#F9F5F0] border-b border-[#E5E1DA] text-[11px] font-bold uppercase tracking-[0.2em] text-[#A8A297]">
+                  <div class="p-6 col-span-3">Client Profile</div>
+                  <div class="p-6 col-span-2 text-center">Contact</div>
+                  <div class="p-6 col-span-2 text-center">Lifetime Rentals</div>
+                  <div class="p-6 col-span-2 text-center">Cancellation Rate</div>
+                  <div class="p-6 col-span-1 text-center">Status</div>
+                  <div class="p-6 col-span-2 text-center">Account Control</div>
+                </div>
+
+                <template x-for="client in clients" :key="client.id">
+                  <div class="grid grid-cols-12 border-b border-[#F0EDE7] items-center hover:bg-[#F9F5F0]/30 transition-colors">
+                    
+                    <div class="p-8 col-span-3">
+                      <p class="text-lg font-bold text-[#1A1A1A] mb-1" x-text="client.name"></p>
+                      <p class="text-[10px] text-[#A8A297] font-black uppercase tracking-widest" x-text="'ID: ' + client.id"></p>
+                    </div>
+
+                    <div class="p-8 col-span-2 text-center">
+                      <p class="text-[10px] font-mono font-bold text-[#A8A297] uppercase tracking-widest" x-text="client.phone"></p>
+                    </div>
+
+                    <div class="p-8 col-span-2 text-center">
+                      <p class="text-xl font-black text-[#1A1A1A]" x-text="client.totalRents"></p>
+                    </div>
+
+                    <div class="p-8 col-span-2 text-center">
+                      <p class="text-xl font-black" 
+                         :class="client.cancellations > 2 ? 'text-red-600' : 'text-[#1A1A1A]'"
+                         x-text="client.cancellations"></p>
+                      <template x-if="client.cancellations > 2">
+                         <p class="text-[8px] text-red-600 font-bold uppercase mt-1 tracking-widest">High Risk</p>
+                      </template>
+                    </div>
+
+                    <div class="p-8 col-span-1 text-center">
+                      <span class="text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded border shadow-sm"
+                            :class="{
+                              'bg-green-50 text-green-600 border-green-200': client.status === 'Active',
+                              'bg-yellow-50 text-yellow-600 border-yellow-200': client.status === 'Warning',
+                              'bg-red-50 text-red-600 border-red-200': client.status === 'Restricted'
+                            }"
+                            x-text="client.status"></span>
+                    </div>
+
+                    <div class="p-8 col-span-2 flex flex-col gap-2 items-center">
+                      <template x-if="client.status !== 'Restricted'">
+                        <div class="w-full space-y-2">
+                          <button @click="issueWarning(client)" class="w-full border border-yellow-500 text-yellow-600 py-2 text-[9px] font-bold uppercase tracking-widest rounded shadow-sm hover:bg-yellow-50 transition-all">Issue Warning</button>
+                          <button @click="toggleRestriction(client)" class="w-full bg-red-600 text-white py-2 text-[9px] font-bold uppercase tracking-widest rounded shadow-sm hover:bg-red-700 transition-all">Restrict Account</button>
+                        </div>
+                      </template>
+                      <template x-if="client.status === 'Restricted'">
+                        <button @click="toggleRestriction(client)" class="w-full bg-[#1A1A1A] text-white py-2 text-[9px] font-bold uppercase tracking-widest rounded shadow-sm hover:bg-opacity-80 transition-all">Lift Restriction</button>
+                      </template>
+                    </div>
+
+                  </div>
+                </template>
+
+                <template x-if="clients.length === 0">
+                  <div class="p-32 text-center">
+                    <p class="text-[11px] text-[#A8A297] font-bold uppercase tracking-[0.4em]">No client data generated yet.</p>
+                  </div>
+                </template>
+
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+  </body>
+</html>

@@ -1,88 +1,257 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0"
-    />
-    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
-    <title>
-      eCommerce Dashboard | TailAdmin - Tailwind CSS Admin Dashboard Template
-    </title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Arabela Command Center | Dashboard</title>
+    <script>
+  // AUTHENTICATION GUARD
+  // If the session is not active, immediately redirect to login.
+  // We use .replace() so they can't use the browser's "Back" button to bypass it.
+  if (localStorage.getItem('arabela_session_active') !== 'true') {
+    window.location.replace('login.html');
+  }
+</script>
+    <script src="js/database.js"></script>
+    <style>
+      .font-serif { font-family: 'Times', serif; }
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      [x-cloak] { display: none !important; }
+    </style>
   </head>
   <body
-    x-data="{ page: 'ecommerce', 'loaded': true, 'darkMode': false, 'stickyMenu': false, 'sidebarToggle': false, 'scrollTop': false }"
-    x-init="
-         darkMode = JSON.parse(localStorage.getItem('darkMode'));
-         $watch('darkMode', value => localStorage.setItem('darkMode', JSON.stringify(value)))"
-    :class="{'dark bg-gray-900': darkMode === true}"
+    x-data="{ 
+      'sidebarToggle': false,
+      'currentTab': 'operations',
+      'reservations': ArabelaDB.getReservations(),
+      'gowns': ArabelaDB.getGowns(),
+      'today': new Date(),
+
+      getTimer(createdAt) {
+        const threeHours = 3 * 60 * 60 * 1000;
+        const diff = (createdAt + threeHours) - new Date().getTime();
+        if (diff <= 0) return 'EXPIRED';
+        const h = Math.floor(diff / (1000 * 60 * 60));
+        const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        return `${h}h ${m}m`;
+      },
+
+      getEventsForDay(day) {
+        const year = this.today.getFullYear();
+        const month = String(this.today.getMonth() + 1).padStart(2, '0');
+        const dayStr = String(day).padStart(2, '0');
+        const dateKey = `${year}-${month}-${dayStr}`;
+
+        return {
+          pickups: this.reservations.filter(r => {
+            const relDate = new Date(r.createdAt).toISOString().split('T')[0];
+            return r.status === 'On Rent' && relDate === dateKey;
+          }),
+          returns: this.reservations.filter(r => {
+            return r.status === 'On Rent' && r.deadline === dateKey;
+          })
+        };
+      },
+
+      getRentStatus(deadline) {
+        if (!deadline) return { text: 'UNKNOWN', color: 'text-gray-500', bg: 'bg-gray-50 border-gray-200' };
+        const currentDate = new Date();
+        currentDate.setHours(0,0,0,0);
+        const dueDate = new Date(deadline);
+        dueDate.setHours(0,0,0,0);
+        
+        if (currentDate > dueDate) {
+          return { text: 'LATE', color: 'text-red-600', bg: 'bg-red-50 border-red-200' };
+        }
+        return { text: 'ON TIME', color: 'text-green-600', bg: 'bg-green-50 border-green-200' };
+      },
+
+      getPercentage(count) {
+        if (this.gowns.length === 0) return 0;
+        return Math.round((count / this.gowns.length) * 100);
+      }
+    }"
+    class="bg-white font-sans text-[#1A1A1A]"
   >
-    <!-- ===== Preloader Start ===== -->
-    <include src="./partials/preloader.html"></include>
-    <!-- ===== Preloader End ===== -->
-
-    <!-- ===== Page Wrapper Start ===== -->
     <div class="flex h-screen overflow-hidden">
-      <!-- ===== Sidebar Start ===== -->
       <include src="./partials/sidebar.html"></include>
-      <!-- ===== Sidebar End ===== -->
 
-      <!-- ===== Content Area Start ===== -->
-      <div
-        class="relative flex flex-col flex-1 overflow-x-hidden overflow-y-auto"
-      >
-        <!-- Small Device Overlay Start -->
-        <include src="./partials/overlay.html" />
-        <!-- Small Device Overlay End -->
-
-        <!-- ===== Header Start ===== -->
+      <div class="relative flex flex-col flex-1 overflow-y-auto bg-white">
         <include src="./partials/header.html" />
-        <!-- ===== Header End ===== -->
 
-        <!-- ===== Main Content Start ===== -->
-        <main>
-          <div class="p-4 mx-auto max-w-(--breakpoint-2xl) md:p-6">
-            <div class="grid grid-cols-12 gap-4 md:gap-6">
-              <div class="col-span-12 space-y-6 xl:col-span-7">
-                <!-- Metric Group One -->
-                <include src="./partials/metric-group/metric-group-01.html" />
-                <!-- Metric Group One -->
+        <main class="p-6 md:p-10">
+          
+          <div class="mb-10 flex justify-between items-end border-b border-[#F0EDE7] pb-8">
+            <div>
+              <h1 class="text-3xl font-bold uppercase tracking-[0.2em] font-serif">Arabela Overview</h1>
+              <p class="text-[10px] text-[#A8A297] font-bold uppercase tracking-[0.3em] mt-2" x-text="'System Status as of ' + today.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })"></p>
+            </div>
+          </div>
 
-                <!-- ====== Chart One Start -->
-                <include src="./partials/chart/chart-01.html" />
-                <!-- ====== Chart One End -->
+          <div class="flex gap-8 mb-10 border-b border-[#F0EDE7]">
+            <button @click="currentTab = 'operations'" 
+                    :class="currentTab === 'operations' ? 'border-b-2 border-[#1A1A1A] text-[#1A1A1A]' : 'text-[#A8A297]'"
+                    class="pb-4 text-[10px] font-black uppercase tracking-[0.2em] transition-all">
+              Live Operations
+            </button>
+            <button @click="currentTab = 'schedule'" 
+                    :class="currentTab === 'schedule' ? 'border-b-2 border-[#1A1A1A] text-[#1A1A1A]' : 'text-[#A8A297]'"
+                    class="pb-4 text-[10px] font-black uppercase tracking-[0.2em] transition-all">
+              Schedule & Calendar
+            </button>
+            <button @click="currentTab = 'monitoring'" 
+                    :class="currentTab === 'monitoring' ? 'border-b-2 border-[#1A1A1A] text-[#1A1A1A]' : 'text-[#A8A297]'"
+                    class="pb-4 text-[10px] font-black uppercase tracking-[0.2em] transition-all">
+              Monitoring & Abuse
+            </button>
+          </div>
+
+          <div x-show="currentTab === 'operations'" x-cloak class="grid grid-cols-12 gap-6">
+            
+            <div class="col-span-12 lg:col-span-4 rounded-sm border border-[#E5E1DA] bg-white p-8">
+              <h3 class="text-xs font-serif font-bold uppercase tracking-[0.2em] mb-6 border-b border-[#F0EDE7] pb-4">Inventory Status</h3>
+              <div class="space-y-6">
+                <div>
+                  <div class="flex justify-between items-center mb-1"><span class="text-[10px] font-bold text-[#A8A297] uppercase">Total Collection</span><span class="font-black" x-text="gowns.length"></span></div>
+                </div>
+                <div>
+                  <div class="flex justify-between items-center mb-2"><span class="text-[10px] font-bold text-[#A8A297] uppercase text-blue-600">On Rent</span><span class="font-black text-blue-600" x-text="reservations.filter(r => r.status === 'On Rent').length"></span></div>
+                  <div class="w-full bg-[#F9F5F0] rounded-full h-1.5"><div class="bg-blue-600 h-1.5 rounded-full" :style="'width: ' + getPercentage(reservations.filter(r => r.status === 'On Rent').length) + '%'"></div></div>
+                </div>
+                <div>
+                  <div class="flex justify-between items-center mb-2"><span class="text-[10px] font-bold text-[#A8A297] uppercase text-red-500">Maintenance</span><span class="font-black text-red-500" x-text="gowns.filter(g => g.status === 'Damaged').length"></span></div>
+                  <div class="w-full bg-[#F9F5F0] rounded-full h-1.5"><div class="bg-red-500 h-1.5 rounded-full" :style="'width: ' + getPercentage(gowns.filter(g => g.status === 'Damaged').length) + '%'"></div></div>
+                </div>
               </div>
-              <div class="col-span-12 xl:col-span-5">
-                <!-- ====== Chart Two Start -->
-                <include src="./partials/chart/chart-02.html" />
-                <!-- ====== Chart Two End -->
-              </div>
+            </div>
 
-              <div class="col-span-12">
-                <!-- ====== Chart Three Start -->
-                <include src="./partials/chart/chart-03.html" />
-                <!-- ====== Chart Three End -->
+            <div class="col-span-12 lg:col-span-8 rounded-sm border border-[#E5E1DA] bg-white p-8">
+              <h3 class="text-xs font-serif font-bold uppercase tracking-[0.2em] mb-6 border-b border-[#F0EDE7] pb-4">Payment Tracking</h3>
+              <div class="grid grid-cols-2 gap-8">
+                <div>
+                  <p class="text-[9px] font-black text-[#A8A297] uppercase mb-3 border-b border-dashed border-[#E5E1DA] pb-2">Pending Holds (3H Window)</p>
+                  <div class="space-y-2">
+                    <template x-for="res in reservations.filter(r => r.status === 'Pending')" :key="res.id">
+                      <div class="p-3 bg-[#F9F5F0] border border-[#E5E1DA] rounded-sm flex justify-between items-center">
+                        <p class="text-[10px] font-bold uppercase truncate pr-2" x-text="res.name"></p>
+                        <p class="text-[9px] text-red-600 font-mono font-bold whitespace-nowrap" x-text="getTimer(res.createdAt)"></p>
+                      </div>
+                    </template>
+                    <template x-if="reservations.filter(r => r.status === 'Pending').length === 0">
+                      <div class="p-6 text-center border-2 border-dashed border-[#E5E1DA] rounded-sm">
+                        <p class="text-[9px] text-[#A8A297] font-bold uppercase tracking-widest">No Pending Holds</p>
+                      </div>
+                    </template>
+                  </div>
+                </div>
+                <div>
+                  <p class="text-[9px] font-black text-[#A8A297] uppercase mb-3 border-b border-dashed border-[#E5E1DA] pb-2">Approved Payments</p>
+                  <div class="space-y-2">
+                    <template x-for="res in reservations.filter(r => r.status === 'Reserved' || r.status === 'Confirmed')" :key="res.id">
+                      <div class="p-3 bg-green-50 border border-green-100 rounded-sm">
+                        <p class="text-[10px] font-bold text-green-700 uppercase truncate" x-text="res.name"></p>
+                      </div>
+                    </template>
+                    <template x-if="reservations.filter(r => r.status === 'Reserved' || r.status === 'Confirmed').length === 0">
+                      <div class="p-6 text-center border-2 border-dashed border-[#E5E1DA] rounded-sm">
+                        <p class="text-[9px] text-[#A8A297] font-bold uppercase tracking-widest">No Approved Assets</p>
+                      </div>
+                    </template>
+                  </div>
+                </div>
               </div>
+            </div>
 
-              <div class="col-span-12 xl:col-span-5">
-                <!-- ====== Map One Start -->
-                <include src="./partials/map-01.html" />
-                <!-- ====== Map One End -->
-              </div>
-
-              <div class="col-span-12 xl:col-span-7">
-                <!-- ====== Table One Start -->
-                <include src="./partials/table/table-01.html" />
-                <!-- ====== Table One End -->
+            <div class="col-span-12 rounded-sm border border-[#E5E1DA] bg-white p-8">
+              <h3 class="text-xs font-serif font-bold uppercase tracking-[0.2em] mb-6 border-b border-[#F0EDE7] pb-4">Live Rental Tracker</h3>
+              <div class="space-y-3">
+                <template x-for="res in reservations.filter(r => r.status === 'On Rent')" :key="res.id">
+                  <div class="flex items-center justify-between p-5 bg-[#F9F5F0] border border-[#E5E1DA] rounded-sm">
+                    <div class="w-1/3">
+                      <p class="text-[11px] font-bold text-[#1A1A1A] uppercase" x-text="res.name"></p>
+                      <p class="text-[9px] text-[#A8A297] font-black uppercase tracking-widest mt-1" x-text="res.gown + ' (#' + res.gownId + ')'"></p>
+                    </div>
+                    <div class="w-1/3 text-center border-l border-r border-[#E5E1DA]">
+                      <p class="text-[8px] text-[#A8A297] font-bold uppercase tracking-widest mb-1">Duration of Rent</p>
+                      <p class="text-[10px] font-mono font-bold text-[#1A1A1A]" 
+                         x-text="new Date(res.createdAt).toLocaleDateString('en-GB') + ' — ' + new Date(res.deadline).toLocaleDateString('en-GB')"></p>
+                    </div>
+                    <div class="w-1/3 flex justify-end">
+                      <span class="text-[9px] font-black uppercase tracking-widest px-4 py-1.5 rounded-full border shadow-sm"
+                            :class="getRentStatus(res.deadline).bg + ' ' + getRentStatus(res.deadline).color"
+                            x-text="getRentStatus(res.deadline).text">
+                      </span>
+                    </div>
+                  </div>
+                </template>
+                
+                <template x-if="reservations.filter(r => r.status === 'On Rent').length === 0">
+                  <div class="p-8 text-center border-2 border-dashed border-[#F0EDE7] rounded-sm bg-gray-50">
+                    <p class="text-[10px] text-[#A8A297] font-bold uppercase tracking-[0.2em]">No Gowns Currently Deployed</p>
+                  </div>
+                </template>
               </div>
             </div>
           </div>
+
+          <div x-show="currentTab === 'schedule'" x-cloak>
+            <div class="rounded-sm border border-[#E5E1DA] bg-white p-8">
+              <div class="flex justify-between items-center mb-6 border-b border-[#F0EDE7] pb-4">
+                <h3 class="text-xs font-serif font-bold uppercase tracking-[0.2em]" x-text="today.toLocaleString('default', { month: 'long', year: 'numeric' }) + ' Schedule'"></h3>
+                <div class="flex gap-4 text-[9px] font-bold uppercase">
+                  <span class="flex items-center gap-1"><span class="w-2 h-2 bg-[#1A1A1A] rounded-full"></span> Pickup</span>
+                  <span class="flex items-center gap-1"><span class="w-2 h-2 bg-red-500 rounded-full"></span> Return</span>
+                </div>
+              </div>
+              <div class="grid grid-cols-7 gap-px bg-[#E5E1DA] border border-[#E5E1DA]">
+                <template x-for="day in ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']">
+                  <div class="bg-[#F9F5F0] p-2 text-center text-[9px] font-black uppercase text-[#A8A297]" x-text="day"></div>
+                </template>
+                <template x-for="i in 31" :key="i">
+                  <div class="bg-white h-24 p-2 relative group hover:bg-[#F9F5F0] transition-colors overflow-y-auto no-scrollbar">
+                    <span class="text-[10px] font-bold text-[#A8A297]" x-text="i"></span>
+                    <div class="mt-1 space-y-1">
+                      <template x-for="res in getEventsForDay(i).pickups" :key="'p'+res.id">
+                        <div class="bg-[#1A1A1A] text-white text-[7px] p-1 rounded uppercase font-bold truncate" x-text="'↑ ' + res.name"></div>
+                      </template>
+                      <template x-for="res in getEventsForDay(i).returns" :key="'r'+res.id">
+                        <div class="bg-red-500 text-white text-[7px] p-1 rounded uppercase font-bold truncate" x-text="'↓ ' + res.name"></div>
+                      </template>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </div>
+
+          <div x-show="currentTab === 'monitoring'" x-cloak class="grid grid-cols-12 gap-6">
+            <div class="col-span-12 lg:col-span-6 rounded-sm border border-[#E5E1DA] p-8 shadow-sm">
+              <h3 class="text-[10px] font-black text-red-600 uppercase tracking-widest mb-6 border-b border-[#F0EDE7] pb-4">Critical Alerts</h3>
+              <div class="space-y-4">
+                <div class="flex justify-between items-center pb-2">
+                  <span class="text-[10px] font-bold uppercase text-[#A8A297]">Late Returns</span>
+                  <span class="text-xl font-black text-red-600" x-text="reservations.filter(r => r.status === 'On Rent' && new Date(r.deadline) < new Date(new Date().setHours(0,0,0,0))).length"></span>
+                </div>
+                <div class="flex justify-between items-center">
+                  <span class="text-[10px] font-bold uppercase text-[#A8A297]">Items Out</span>
+                  <span class="text-xl font-black" x-text="reservations.filter(r => r.status === 'On Rent').length"></span>
+                </div>
+              </div>
+            </div>
+            <div class="col-span-12 lg:col-span-6 rounded-sm border border-[#E5E1DA] p-8 shadow-sm">
+              <h3 class="text-[10px] font-black text-[#1A1A1A] uppercase tracking-widest mb-6 border-b border-[#F0EDE7] pb-4">Abuse Monitoring</h3>
+              <div class="space-y-3 text-[10px]">
+                <div class="flex justify-between items-center pb-2">
+                  <span class="text-[#A8A297] font-bold uppercase">Restricted Users</span>
+                  <span class="font-black text-red-500 uppercase">2 Flagged</span>
+                </div>
+                <p class="font-serif italic text-[#1A1A1A]">• Denmark C. (Exceeds Cancellation Threshold)</p>
+              </div>
+            </div>
+          </div>
+          
         </main>
-        <!-- ===== Main Content End ===== -->
       </div>
-      <!-- ===== Content Area End ===== -->
     </div>
-    <!-- ===== Page Wrapper End ===== -->
   </body>
 </html>
