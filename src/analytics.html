@@ -6,6 +6,11 @@
     <title>Reports & Analytics | Arabela Admin</title>
     <script src="js/database.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+      if (localStorage.getItem('arabela_session_active') !== 'true') {
+        window.location.replace('login.html');
+      }
+    </script>
     <style>
       .font-serif { font-family: 'Times', serif; }
       [x-cloak] { display: none !important; }
@@ -17,7 +22,6 @@
       'reservations': ArabelaDB.getReservations(),
       'gowns': ArabelaDB.getGowns(),
 
-      // Metric Calculations
       get completedTransactions() {
         return this.reservations.filter(r => r.status === 'Completed');
       },
@@ -38,149 +42,124 @@
       },
 
       get topPerformer() {
-        if (this.completedTransactions.length === 0) return 'Insufficient Data';
+        if (this.completedTransactions.length === 0) return 'No Data';
         const counts = {};
-        this.completedTransactions.forEach(r => {
-          counts[r.gown] = (counts[r.gown] || 0) + 1;
-        });
+        this.completedTransactions.forEach(r => { counts[r.gown] = (counts[r.gown] || 0) + 1; });
         const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
         return sorted[0] ? sorted[0][0] : 'N/A';
       },
 
-      // Initialize the dynamic charts
       initCharts() {
-        // 1. Process Data for Revenue Chart
+        // 1. Revenue Trend Logic
         const monthlyData = new Array(12).fill(0);
         this.completedTransactions.forEach(res => {
-          // Fallback to createdAt if returnDate isn't set
           const date = new Date(res.returnDate || res.createdAt);
-          const month = date.getMonth();
-          monthlyData[month] += (Number(res.deposit) || 0) + (Number(res.finalFine) || 0);
+          monthlyData[date.getMonth()] += (Number(res.deposit) || 0) + (Number(res.finalFine) || 0);
         });
 
-        // Render Revenue Bar Chart
-        const ctxRev = document.getElementById('revenueChart').getContext('2d');
-        new Chart(ctxRev, {
+        new Chart(document.getElementById('revenueChart'), {
           type: 'bar',
           data: {
             labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
-            datasets: [{
-              label: 'Gross Revenue (₱)',
-              data: monthlyData,
-              backgroundColor: '#1A1A1A',
-              borderRadius: 4,
-              borderSkipped: false
-            }]
+            datasets: [{ label: 'Revenue (₱)', data: monthlyData, backgroundColor: '#1A1A1A' }]
           },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: {
-              y: { beginAtZero: true, grid: { color: '#F0EDE7' }, ticks: { font: { size: 10 } } },
-              x: { grid: { display: false }, ticks: { font: { size: 10, weight: 'bold' }, color: '#A8A297' } }
-            }
-          }
+          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
         });
 
-        // 2. Process Data for Inventory Doughnut Chart
-        const availableCount = this.gowns.filter(g => g.status === 'Available').length;
-        const rentedCount = this.reservations.filter(r => r.status === 'On Rent').length;
-        const damagedCount = this.gowns.filter(g => g.status === 'Damaged').length;
+        // 2. Inventory Health Logic
+        const invData = [
+          this.gowns.filter(g => g.status === 'Available').length,
+          this.reservations.filter(r => r.status === 'On Rent').length,
+          this.gowns.filter(g => g.status === 'Damaged').length
+        ];
 
-        // Render Inventory Doughnut Chart
-        const ctxInv = document.getElementById('inventoryChart').getContext('2d');
-        new Chart(ctxInv, {
+        new Chart(document.getElementById('inventoryChart'), {
           type: 'doughnut',
           data: {
-            labels: ['Available', 'Deployed', 'Maintenance'],
+            labels: ['Available', 'Rented', 'Maintenance'],
+            datasets: [{ data: invData, backgroundColor: ['#22c55e', '#3b82f6', '#ef4444'] }]
+          },
+          options: { responsive: true, maintainAspectRatio: false, cutout: '75%' }
+        });
+
+        // 3. IMPROVEMENT: Category Performance Logic
+        const catMap = {};
+        this.completedTransactions.forEach(r => {
+          const cat = r.category || 'Uncategorized';
+          catMap[cat] = (catMap[cat] || 0) + (Number(r.deposit) || 0) + (Number(r.finalFine) || 0);
+        });
+
+        new Chart(document.getElementById('categoryChart'), {
+          type: 'polarArea',
+          data: {
+            labels: Object.keys(catMap),
             datasets: [{
-              data: [availableCount, rentedCount, damagedCount],
-              backgroundColor: ['#22c55e', '#3b82f6', '#ef4444'], // Green, Blue, Red
-              borderWidth: 0,
-              hoverOffset: 4
+              data: Object.values(catMap),
+              backgroundColor: ['rgba(26, 26, 26, 0.8)', 'rgba(168, 162, 151, 0.8)', 'rgba(240, 237, 231, 0.8)']
             }]
           },
-          options: {
-            responsive: true,
+          options: { 
+            responsive: true, 
             maintainAspectRatio: false,
-            cutout: '75%',
-            plugins: {
-              legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10, family: 'sans-serif' } } }
-            }
+            plugins: { legend: { position: 'bottom', labels: { font: { size: 9 } } } }
           }
         });
       }
     }"
-    x-init="setTimeout(() => initCharts(), 100)"
+    x-init="setTimeout(() => initCharts(), 150)"
     class="bg-white font-sans text-[#1A1A1A]"
   >
     <div class="flex h-screen overflow-hidden bg-white">
       <include src="./partials/sidebar.html"></include>
 
-      <div class="relative flex flex-col flex-1 overflow-x-hidden overflow-y-auto bg-white">
+      <div class="relative flex flex-col flex-1 overflow-y-auto bg-white">
         <include src="./partials/header.html" />
 
-        <main>
-          <div class="p-6 mx-auto max-w-(--breakpoint-2xl) md:p-10">
-            
-            <div class="mb-10 flex justify-between items-end border-b border-[#F0EDE7] pb-8">
-              <div>
-                <h2 class="text-3xl font-bold uppercase tracking-[0.2em] font-serif">Reports & Analytics</h2>
-                <p class="text-[10px] text-[#A8A297] font-bold uppercase tracking-[0.3em] mt-2">Executive Overview & Performance Metrics</p>
-              </div>
-              <button onclick="window.print()" class="bg-[#1A1A1A] text-white px-8 py-3 text-[10px] font-bold uppercase tracking-[0.2em] rounded shadow-lg hover:bg-opacity-90 transition-all flex items-center gap-2">
-                Export to PDF
-              </button>
+        <main class="p-6 md:p-10">
+          <div class="mb-10 flex justify-between items-end border-b border-[#F0EDE7] pb-8">
+            <div>
+              <h2 class="text-3xl font-bold uppercase tracking-[0.2em] font-serif">Reports & Analytics</h2>
+              <p class="text-[10px] text-[#A8A297] font-bold uppercase tracking-[0.3em] mt-2">Data-Driven Decision Support System</p>
+            </div>
+            <button onclick="window.print()" class="bg-[#1A1A1A] text-white px-8 py-3 text-[10px] font-bold uppercase tracking-[0.2em] rounded shadow-lg">
+              Generate Report
+            </button>
+          </div>
+
+          <div class="grid grid-cols-12 gap-6 mb-8">
+            <div class="col-span-12 md:col-span-3 border border-[#E5E1DA] p-8">
+              <p class="text-[9px] font-black text-[#A8A297] uppercase tracking-widest mb-2">Net Inflow</p>
+              <h4 class="text-2xl font-black" x-text="'₱' + totalRevenue.toLocaleString()"></h4>
+            </div>
+            <div class="col-span-12 md:col-span-3 border border-[#E5E1DA] bg-[#F9F5F0] p-8">
+              <p class="text-[9px] font-black text-[#A8A297] uppercase tracking-widest mb-2">Penalty Recovery</p>
+              <h4 class="text-2xl font-black text-red-600" x-text="'₱' + totalPenalties.toLocaleString()"></h4>
+            </div>
+            <div class="col-span-12 md:col-span-3 border border-[#E5E1DA] p-8">
+              <p class="text-[9px] font-black text-[#A8A297] uppercase tracking-widest mb-2">Best Seller</p>
+              <h4 class="text-lg font-bold truncate" x-text="topPerformer"></h4>
+            </div>
+            <div class="col-span-12 md:col-span-3 border border-[#E5E1DA] p-8">
+              <p class="text-[9px] font-black text-[#A8A297] uppercase tracking-widest mb-2">Churn Rate</p>
+              <h4 class="text-2xl font-black" x-text="cancellationRate + '%'"></h4>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-12 gap-8">
+            <div class="col-span-12 lg:col-span-6 border border-[#E5E1DA] p-8 min-h-[400px]">
+              <h3 class="text-xs font-serif font-bold uppercase tracking-[0.2em] mb-6 border-b pb-4">Revenue Trend</h3>
+              <div class="h-64"><canvas id="revenueChart"></canvas></div>
             </div>
 
-            <div class="grid grid-cols-12 gap-6 mb-8">
-              <div class="col-span-12 md:col-span-6 lg:col-span-3 rounded-sm border border-[#E5E1DA] bg-white p-8">
-                <p class="text-[9px] font-black text-[#A8A297] uppercase tracking-widest mb-2">Net Revenue Collected</p>
-                <h4 class="text-3xl font-black text-[#1A1A1A]" x-text="'₱' + totalRevenue.toLocaleString()"></h4>
-              </div>
-              <div class="col-span-12 md:col-span-6 lg:col-span-3 rounded-sm border border-[#E5E1DA] bg-[#F9F5F0] p-8">
-                <p class="text-[9px] font-black text-[#A8A297] uppercase tracking-widest mb-2">Late Penalties Recovered</p>
-                <h4 class="text-3xl font-black text-red-600" x-text="'₱' + totalPenalties.toLocaleString()"></h4>
-              </div>
-              <div class="col-span-12 md:col-span-6 lg:col-span-3 rounded-sm border border-[#E5E1DA] bg-white p-8">
-                <p class="text-[9px] font-black text-[#A8A297] uppercase tracking-widest mb-2">Most Popular Item</p>
-                <h4 class="text-xl font-bold text-[#1A1A1A] truncate" x-text="topPerformer"></h4>
-              </div>
-              <div class="col-span-12 md:col-span-6 lg:col-span-3 rounded-sm border border-[#E5E1DA] bg-white p-8">
-                <p class="text-[9px] font-black text-[#A8A297] uppercase tracking-widest mb-2">System Cancellation Rate</p>
-                <h4 class="text-3xl font-black" :class="cancellationRate > 20 ? 'text-red-600' : 'text-[#1A1A1A]'" x-text="cancellationRate + '%'"></h4>
-              </div>
+            <div class="col-span-12 lg:col-span-3 border border-[#E5E1DA] p-8 min-h-[400px]">
+              <h3 class="text-xs font-serif font-bold uppercase tracking-[0.2em] mb-6 border-b pb-4">By Event Category</h3>
+              <div class="h-64"><canvas id="categoryChart"></canvas></div>
             </div>
 
-            <div class="grid grid-cols-12 gap-8">
-              <div class="col-span-12 lg:col-span-8 rounded-sm border border-[#E5E1DA] bg-white p-8">
-                <div class="mb-6 flex justify-between items-center border-b border-[#F0EDE7] pb-4">
-                  <h3 class="text-xs font-serif font-bold uppercase tracking-[0.2em]">Monthly Revenue Trend</h3>
-                  <span class="text-[9px] font-black uppercase text-[#A8A297]">Current Fiscal Year</span>
-                </div>
-                
-                <div class="relative h-64 w-full">
-                  <canvas id="revenueChart"></canvas>
-                </div>
-              </div>
-
-              <div class="col-span-12 lg:col-span-4 rounded-sm border border-[#E5E1DA] bg-white p-8">
-                <div class="mb-6 border-b border-[#F0EDE7] pb-4">
-                  <h3 class="text-xs font-serif font-bold uppercase tracking-[0.2em]">Inventory Health</h3>
-                </div>
-                
-                <div class="relative h-48 w-full mt-4">
-                  <canvas id="inventoryChart"></canvas>
-                </div>
-                
-                <div class="mt-6 text-center">
-                  <p class="text-[10px] font-bold text-[#A8A297] uppercase tracking-widest">Total Monitored Assets</p>
-                  <p class="text-xl font-black text-[#1A1A1A]" x-text="gowns.length"></p>
-                </div>
-              </div>
+            <div class="col-span-12 lg:col-span-3 border border-[#E5E1DA] p-8 min-h-[400px]">
+              <h3 class="text-xs font-serif font-bold uppercase tracking-[0.2em] mb-6 border-b pb-4">Asset Health</h3>
+              <div class="h-64"><canvas id="inventoryChart"></canvas></div>
             </div>
-            
           </div>
         </main>
       </div>

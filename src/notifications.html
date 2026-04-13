@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Notification Center | Arabela Admin</title>
     <script src="js/database.js"></script>
+    <script>
+      if (localStorage.getItem('arabela_session_active') !== 'true') {
+        window.location.replace('login.html');
+      }
+    </script>
     <style>
       .font-serif { font-family: 'Times', serif; }
       [x-cloak] { display: none !important; }
@@ -14,14 +19,23 @@
     x-data="{ 
       'sidebarToggle': false,
       'reservations': ArabelaDB.getReservations(),
+      'config': JSON.parse(localStorage.getItem('arabela_config')) || { depositAmount: 2000, lateFeePerDay: 200, paymentWindowHours: 48 },
       
-      // Filter for notifications that need sending
       get pendingAlerts() {
+        // Specifically identifies time-sensitive communications
         return this.reservations.filter(r => r.status === 'Pending' || r.status === 'On Rent');
       },
 
-      sendAlert(name, type) {
-        alert(`PROTOCOL INITIATED: ${type} alert sent to ${name} via SMS/Email.`);
+      sendAlert(name, gown, type, context) {
+        let message = '';
+        if(context === 'deposit') {
+          message = `Dear ${name}, your reservation for ${gown} is held for ${this.config.paymentWindowHours} hours. Please settle the ₱${this.config.depositAmount} deposit to confirm.`;
+        } else {
+          message = `URGENT: ${name}, your rental of ${gown} is past the deadline. Daily penalties of ₱${this.config.lateFeePerDay} are now being applied.`;
+        }
+        
+        console.log(`PROTOTYPE_COMMUNICATION: Sending ${type} to ${name} Content: ${message}`);
+        alert(`PROTOCOL INITIATED: ${type} notification dispatched to ${name}.`);
       }
     }"
     class="bg-white font-sans text-[#1A1A1A]"
@@ -44,26 +58,27 @@
 
             <div class="grid grid-cols-12 gap-8">
               <div class="col-span-12 lg:col-span-4 space-y-6">
-                <h3 class="text-xs font-serif font-bold uppercase tracking-[0.2em] border-b pb-4">Message Templates</h3>
+                <h3 class="text-xs font-serif font-bold uppercase tracking-[0.2em] border-b pb-4">Dynamic Templates</h3>
                 
                 <div class="p-6 bg-[#F9F5F0] border border-[#E5E1DA] rounded-sm">
-                  <p class="text-[9px] font-black text-[#A8A297] uppercase mb-2">Payment Reminder</p>
+                  <p class="text-[9px] font-black text-[#A8A297] uppercase mb-2">Payment Reminder (Initial)</p>
                   <p class="text-[10px] leading-relaxed italic text-[#1A1A1A]">
-                    "Dear [Name], your reservation for [Gown] is held for 3 hours. Please settle the deposit to confirm."
+                    "Dear [Name], your reservation for [Gown] is held for <span class="font-bold underline" x-text="config.paymentWindowHours"></span> hours. Please settle the ₱<span class="font-bold underline" x-text="config.depositAmount"></span> deposit to confirm."
                   </p>
                 </div>
 
-                <div class="p-6 bg-[#F9F5F0] border border-[#E5E1DA] rounded-sm">
-                  <p class="text-[9px] font-black text-[#A8A297] uppercase mb-2">Late Return Warning</p>
-                  <p class="text-[10px] leading-relaxed italic text-[#1A1A1A]">
-                    "URGENT: Your rental is past the deadline. Daily penalties of ₱200 are now being applied."
+                <div class="p-6 bg-red-50 border border-red-100 rounded-sm">
+                  <p class="text-[9px] font-black text-red-600 uppercase mb-2">Late Return Warning</p>
+                  <p class="text-[10px] leading-relaxed italic text-red-700">
+                    "URGENT: Your rental is past the deadline. Daily penalties of ₱<span class="font-bold underline" x-text="config.lateFeePerDay"></span> are now being applied."
                   </p>
                 </div>
               </div>
 
               <div class="col-span-12 lg:col-span-8 rounded-sm border border-[#E5E1DA] bg-white shadow-sm overflow-hidden">
-                <div class="bg-[#F9F5F0] p-4 border-b border-[#E5E1DA]">
+                <div class="bg-[#F9F5F0] p-4 border-b border-[#E5E1DA] flex justify-between items-center">
                   <h3 class="text-[10px] font-black uppercase tracking-widest text-[#1A1A1A]">Pending Communication Queue</h3>
+                  <span class="text-[8px] font-bold text-[#A8A297] uppercase" x-text="pendingAlerts.length + ' Active Alerts'"></span>
                 </div>
 
                 <div class="divide-y divide-[#F0EDE7]">
@@ -71,16 +86,21 @@
                     <div class="p-6 flex items-center justify-between hover:bg-gray-50 transition-colors">
                       <div>
                         <p class="text-sm font-bold text-[#1A1A1A]" x-text="res.name"></p>
-                        <p class="text-[9px] text-[#A8A297] font-bold uppercase mt-1" 
-                           x-text="res.status === 'Pending' ? 'Action: Awaiting Deposit' : 'Action: Track Return'"></p>
+                        <div class="flex items-center gap-2 mt-1">
+                          <span class="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded border"
+                                :class="res.status === 'Pending' ? 'bg-yellow-50 text-yellow-600 border-yellow-100' : 'bg-blue-50 text-blue-600 border-blue-100'"
+                                x-text="res.status"></span>
+                          <p class="text-[9px] text-[#A8A297] font-bold uppercase" 
+                             x-text="res.status === 'Pending' ? 'Action: Awaiting Deposit' : 'Action: Return Reminder'"></p>
+                        </div>
                       </div>
                       
                       <div class="flex gap-3">
-                        <button @click="sendAlert(res.name, 'Follow-up')" 
+                        <button @click="sendAlert(res.name, res.gown, 'SMS', res.status === 'Pending' ? 'deposit' : 'return')" 
                                 class="border border-[#1A1A1A] text-[#1A1A1A] px-4 py-2 text-[8px] font-black uppercase tracking-widest hover:bg-[#1A1A1A] hover:text-white transition-all">
                           Send SMS
                         </button>
-                        <button @click="sendAlert(res.name, 'Final')" 
+                        <button @click="sendAlert(res.name, res.gown, 'EMAIL', res.status === 'Pending' ? 'deposit' : 'return')" 
                                 class="bg-[#1A1A1A] text-white px-4 py-2 text-[8px] font-black uppercase tracking-widest hover:bg-opacity-80 transition-all">
                           Send Email
                         </button>
@@ -89,7 +109,7 @@
                   </template>
 
                   <template x-if="pendingAlerts.length === 0">
-                    <div class="p-20 text-center">
+                    <div class="p-24 text-center">
                       <p class="text-[10px] text-[#A8A297] font-bold uppercase tracking-[0.3em]">Communication Queue Clear</p>
                     </div>
                   </template>

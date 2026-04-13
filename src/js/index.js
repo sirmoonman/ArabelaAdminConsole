@@ -15,6 +15,9 @@ import map01 from "./components/map-01";
 import "./components/calendar-init.js";
 import "./components/image-resize";
 
+// Inject the Arabela database logic here
+import "./database.js";
+
 Alpine.plugin(persist);
 window.Alpine = Alpine;
 Alpine.start();

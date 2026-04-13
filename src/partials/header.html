@@ -41,15 +41,32 @@
         </li>
       </ul>
 
-      <a href="profile.html" class="flex items-center gap-4">
-        <span class="hidden text-right lg:block">
-          <span class="block text-[10px] font-bold text-[#1A1A1A] uppercase tracking-widest">Jose Miguel Tolentino C.</span>
-          <span class="block text-[8px] font-medium text-[#A8A297] uppercase tracking-widest">Administrator</span>
-        </span>
-        <span class="h-12 w-12 rounded-full bg-[#1A1A1A] flex items-center justify-center text-white text-xs font-serif">
-          JMT
-        </span>
-      </a>
-    </div>
+      <div class="relative" x-data="{ dropdownOpen: false }" @click.outside="dropdownOpen = false">
+        <button @click="dropdownOpen = !dropdownOpen" class="flex items-center gap-4 focus:outline-none">
+          <span class="hidden text-right lg:block">
+            <span class="block text-[10px] font-bold text-[#1A1A1A] uppercase tracking-widest">Jose Miguel Tolentino C.</span>
+            <span class="block text-[8px] font-medium text-[#A8A297] uppercase tracking-widest">Administrator</span>
+          </span>
+          <span class="h-12 w-12 rounded-full bg-[#1A1A1A] flex items-center justify-center text-white text-xs font-serif">
+            JMT
+          </span>
+        </button>
+
+        <div x-show="dropdownOpen" x-cloak class="absolute right-0 mt-4 flex w-62.5 flex-col rounded-sm border border-[#E5E1DA] bg-white shadow-default">
+          <ul class="flex flex-col gap-5 border-b border-[#F0EDE7] px-6 py-7.5">
+            <li>
+              <a href="profile.html" class="flex items-center gap-3.5 text-sm font-medium duration-300 ease-in-out hover:text-[#1A1A1A] lg:text-base">
+                <span class="text-[10px] font-bold uppercase tracking-widest text-[#A8A297] hover:text-[#1A1A1A]">Account Settings</span>
+              </a>
+            </li>
+          </ul>
+          <button 
+            onclick="localStorage.removeItem('arabela_session_active'); window.location.replace('login.html');" 
+            class="flex items-center gap-3.5 px-6 py-4 text-[10px] font-bold text-red-600 uppercase tracking-widest hover:bg-red-50 transition-colors">
+            Terminate Session
+          </button>
+        </div>
+      </div>
+      </div>
   </div>
 </header>

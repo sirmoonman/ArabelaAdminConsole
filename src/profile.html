@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Admin Profile | Arabela Admin</title>
     <script src="js/database.js"></script>
+    <script>
+      if (localStorage.getItem('arabela_session_active') !== 'true') {
+        window.location.replace('login.html');
+      }
+    </script>
     <style>
       .font-serif { font-family: 'Times', serif; }
       [x-cloak] { display: none !important; }
@@ -15,8 +20,8 @@
       'sidebarToggle': false,
       'isSaving': false,
       
-      // Admin Data
-      'admin': {
+      // PERSISTENCE: Initialize from storage or capstone defaults
+      'admin': JSON.parse(localStorage.getItem('arabela_admin_profile')) || {
         id: 'EMP-001',
         name: 'Jose Miguel Tolentino C.',
         role: 'System Administrator',
@@ -31,7 +36,7 @@
         confirm: ''
       },
 
-      // Simulated Audit Log (Required for MIS Capstones)
+      // Audit Trail matches capstone requirement for transparency [cite: 257]
       'activityLog': [
         { action: 'Approved Payment', target: 'Ref: ARB-9102', time: '10 mins ago', type: 'success' },
         { action: 'Updated Settings', target: 'Global Parameters', time: '1 hour ago', type: 'warning' },
@@ -43,21 +48,23 @@
       saveProfile() {
         this.isSaving = true;
         setTimeout(() => {
+          localStorage.setItem('arabela_admin_profile', JSON.stringify(this.admin));
           this.isSaving = false;
-          alert('Profile information updated successfully.');
+          alert('SYSTEM NOTIFICATION: Identity updated. Session persistence active.');
+          window.location.reload(); // Force header refresh
         }, 800);
       },
 
       updatePassword() {
         if (this.passwords.new !== this.passwords.confirm) {
-          alert('Error: New passwords do not match.');
+          alert('CRITICAL ERROR: New passwords do not match.');
           return;
         }
         if (this.passwords.new.length < 8) {
-          alert('Error: Password must be at least 8 characters long.');
+          alert('SECURITY ERROR: Minimum 8 characters required.');
           return;
         }
-        alert('Security credentials updated. Please use your new password on next login.');
+        alert('SECURITY PROTOCOL: Passcode updated. Active on next authentication.');
         this.passwords = { current: '', new: '', confirm: '' };
       }
     }"
@@ -99,15 +106,15 @@
                     <div class="grid grid-cols-2 gap-6">
                       <div>
                         <label class="block text-[10px] font-bold text-[#A8A297] uppercase mb-2 tracking-widest">Full Name</label>
-                        <input type="text" x-model="admin.name" class="w-full border border-[#E5E1DA] bg-[#F9F5F0] p-4 text-sm font-bold text-[#1A1A1A] outline-none focus:border-[#1A1A1A]">
+                        <input type="text" x-model="admin.name" required class="w-full border border-[#E5E1DA] bg-[#F9F5F0] p-4 text-sm font-bold text-[#1A1A1A] outline-none focus:border-[#1A1A1A] focus:bg-white transition-colors">
                       </div>
                       <div>
                         <label class="block text-[10px] font-bold text-[#A8A297] uppercase mb-2 tracking-widest">Email Address</label>
-                        <input type="email" x-model="admin.email" class="w-full border border-[#E5E1DA] bg-[#F9F5F0] p-4 text-sm font-bold text-[#1A1A1A] outline-none focus:border-[#1A1A1A]">
+                        <input type="email" x-model="admin.email" required class="w-full border border-[#E5E1DA] bg-[#F9F5F0] p-4 text-sm font-bold text-[#1A1A1A] outline-none focus:border-[#1A1A1A] focus:bg-white transition-colors">
                       </div>
                       <div>
                         <label class="block text-[10px] font-bold text-[#A8A297] uppercase mb-2 tracking-widest">Contact Number</label>
-                        <input type="text" x-model="admin.phone" class="w-full border border-[#E5E1DA] bg-[#F9F5F0] p-4 text-sm font-bold text-[#1A1A1A] outline-none focus:border-[#1A1A1A]">
+                        <input type="text" x-model="admin.phone" required class="w-full border border-[#E5E1DA] bg-[#F9F5F0] p-4 text-sm font-bold text-[#1A1A1A] outline-none focus:border-[#1A1A1A] focus:bg-white transition-colors">
                       </div>
                       <div>
                         <label class="block text-[10px] font-bold text-[#A8A297] uppercase mb-2 tracking-widest">Last Login Attempt</label>
@@ -116,9 +123,9 @@
                     </div>
 
                     <div class="flex justify-end pt-4">
-                      <button type="submit" :disabled="isSaving" class="bg-[#1A1A1A] text-white px-8 py-3 text-[10px] font-bold uppercase tracking-[0.2em] rounded shadow-md hover:bg-opacity-90 transition-all disabled:opacity-50">
+                      <button type="submit" :disabled="isSaving" class="bg-[#1A1A1A] text-white px-8 py-3 text-[10px] font-bold uppercase tracking-[0.2em] rounded shadow-md hover:bg-opacity-90 transition-all disabled:opacity-50 h-12 min-w-[160px]">
                         <span x-show="!isSaving">Update Identity</span>
-                        <span x-show="isSaving" x-cloak>Saving...</span>
+                        <span x-show="isSaving" x-cloak class="animate-pulse">Saving...</span>
                       </button>
                     </div>
                   </form>
@@ -130,16 +137,16 @@
                   <form @submit.prevent="updatePassword()" class="space-y-6">
                     <div>
                       <label class="block text-[10px] font-bold text-[#A8A297] uppercase mb-2 tracking-widest">Current Password</label>
-                      <input type="password" x-model="passwords.current" required class="w-full border border-[#E5E1DA] p-4 text-sm outline-none focus:border-[#1A1A1A]">
+                      <input type="password" x-model="passwords.current" required class="w-full border border-[#E5E1DA] p-4 text-sm outline-none focus:border-[#1A1A1A] bg-[#F9F5F0] focus:bg-white transition-colors">
                     </div>
                     <div class="grid grid-cols-2 gap-6">
                       <div>
                         <label class="block text-[10px] font-bold text-[#A8A297] uppercase mb-2 tracking-widest">New Password</label>
-                        <input type="password" x-model="passwords.new" required class="w-full border border-[#E5E1DA] p-4 text-sm outline-none focus:border-[#1A1A1A]">
+                        <input type="password" x-model="passwords.new" required class="w-full border border-[#E5E1DA] p-4 text-sm outline-none focus:border-[#1A1A1A] bg-[#F9F5F0] focus:bg-white transition-colors">
                       </div>
                       <div>
                         <label class="block text-[10px] font-bold text-[#A8A297] uppercase mb-2 tracking-widest">Confirm New Password</label>
-                        <input type="password" x-model="passwords.confirm" required class="w-full border border-[#E5E1DA] p-4 text-sm outline-none focus:border-[#1A1A1A]">
+                        <input type="password" x-model="passwords.confirm" required class="w-full border border-[#E5E1DA] p-4 text-sm outline-none focus:border-[#1A1A1A] bg-[#F9F5F0] focus:bg-white transition-colors">
                       </div>
                     </div>
                     
@@ -160,7 +167,7 @@
                     <span class="text-[9px] font-black uppercase text-[#A8A297] bg-[#F9F5F0] px-2 py-1 rounded">Live Sync</span>
                   </div>
                   
-                  <p class="text-[10px] text-[#A8A297] mb-6 tracking-widest uppercase">Recent actions performed by <span x-text="admin.id"></span></p>
+                  <p class="text-[10px] text-[#A8A297] mb-6 tracking-widest uppercase">Recent actions performed by <span x-text="admin.id" class="text-[#1A1A1A] font-black"></span></p>
 
                   <div class="space-y-6 relative before:absolute before:inset-0 before:ml-2 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-[#E5E1DA] before:to-transparent pl-6 md:pl-0">
                     

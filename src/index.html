@@ -5,13 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Arabela Command Center | Dashboard</title>
     <script>
-  // AUTHENTICATION GUARD
-  // If the session is not active, immediately redirect to login.
-  // We use .replace() so they can't use the browser's "Back" button to bypass it.
-  if (localStorage.getItem('arabela_session_active') !== 'true') {
-    window.location.replace('login.html');
-  }
-</script>
+      // AUTHENTICATION GUARD
+      if (localStorage.getItem('arabela_session_active') !== 'true') {
+        window.location.replace('login.html');
+      }
+    </script>
     <script src="js/database.js"></script>
     <style>
       .font-serif { font-family: 'Times', serif; }
@@ -26,6 +24,7 @@
       'reservations': ArabelaDB.getReservations(),
       'gowns': ArabelaDB.getGowns(),
       'today': new Date(),
+      'clientStatuses': JSON.parse(localStorage.getItem('arabela_client_status')) || {},
 
       getTimer(createdAt) {
         const threeHours = 3 * 60 * 60 * 1000;
@@ -69,6 +68,23 @@
       getPercentage(count) {
         if (this.gowns.length === 0) return 0;
         return Math.round((count / this.gowns.length) * 100);
+      },
+
+      getAbusiveUsers() {
+        this.clientStatuses = JSON.parse(localStorage.getItem('arabela_client_status')) || {};
+        const flagged = [];
+        
+        Object.entries(this.clientStatuses).forEach(([name, status]) => {
+          if (status === 'Restricted' || status === 'Warning') {
+            flagged.push({
+              name: name,
+              level: status,
+              reason: status === 'Restricted' ? 'Account Locked (Manual/CRM)' : 'System Warning (High Risk)'
+            });
+          }
+        });
+        
+        return flagged;
       }
     }"
     class="bg-white font-sans text-[#1A1A1A]"
@@ -238,14 +254,30 @@
                 </div>
               </div>
             </div>
+            
             <div class="col-span-12 lg:col-span-6 rounded-sm border border-[#E5E1DA] p-8 shadow-sm">
-              <h3 class="text-[10px] font-black text-[#1A1A1A] uppercase tracking-widest mb-6 border-b border-[#F0EDE7] pb-4">Abuse Monitoring</h3>
+              <h3 class="text-[10px] font-black text-[#1A1A1A] uppercase tracking-widest mb-6 border-b border-[#F0EDE7] pb-4">Abuse Monitoring (CRM Sync)</h3>
               <div class="space-y-3 text-[10px]">
-                <div class="flex justify-between items-center pb-2">
-                  <span class="text-[#A8A297] font-bold uppercase">Restricted Users</span>
-                  <span class="font-black text-red-500 uppercase">2 Flagged</span>
+                <div class="flex justify-between items-center pb-2 border-b border-dashed border-[#F0EDE7]">
+                  <span class="text-[#A8A297] font-bold uppercase">Flagged Accounts</span>
+                  <span class="font-black text-red-500 uppercase" x-text="getAbusiveUsers().length + ' Detected'"></span>
                 </div>
-                <p class="font-serif italic text-[#1A1A1A]">• Denmark C. (Exceeds Cancellation Threshold)</p>
+                
+                <div class="pt-2 space-y-3">
+                  <template x-for="user in getAbusiveUsers()" :key="user.name">
+                    <div class="flex justify-between items-center">
+                      <p class="font-serif italic text-[#1A1A1A]" x-text="'• ' + user.name"></p>
+                      <span class="text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded border"
+                            :class="user.level === 'Restricted' ? 'bg-red-50 text-red-600 border-red-200' : 'bg-yellow-50 text-yellow-600 border-yellow-200'"
+                            x-text="user.level">
+                      </span>
+                    </div>
+                  </template>
+                  
+                  <template x-if="getAbusiveUsers().length === 0">
+                    <p class="font-serif italic text-[#A8A297] text-center mt-4">System Nominal. No abuse detected.</p>
+                  </template>
+                </div>
               </div>
             </div>
           </div>

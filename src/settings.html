@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>System Settings | Arabela Admin</title>
     <script src="js/database.js"></script>
+    <script>
+      if (localStorage.getItem('arabela_session_active') !== 'true') {
+        window.location.replace('login.html');
+      }
+    </script>
     <style>
       .font-serif { font-family: 'Times', serif; }
       [x-cloak] { display: none !important; }
@@ -15,11 +20,11 @@
       'sidebarToggle': false,
       'isSaving': false,
       
-      // Global Parameters (Normally fetched from ArabelaDB)
-      'config': {
+      // PERSISTENCE: Initialize from storage or use capstone defaults
+      'config': JSON.parse(localStorage.getItem('arabela_config')) || {
         depositAmount: 2000,
         lateFeePerDay: 200,
-        paymentWindowHours: 3,
+        paymentWindowHours: 48,
         maxCancellations: 2,
         cleaningFee: 500,
         repairFeeMinimum: 1000
@@ -27,12 +32,50 @@
 
       saveSettings() {
         this.isSaving = true;
-        // Simulate database save delay
         setTimeout(() => {
-          // ArabelaDB.saveConfig(this.config); // Future DB connection
+          localStorage.setItem('arabela_config', JSON.stringify(this.config));
           this.isSaving = false;
-          alert('System parameters successfully updated. New rules will apply to all future transactions.');
+          alert('System parameters successfully updated. Rules apply to all future transactions.');
         }, 800);
+      },
+
+      exportData() {
+        const data = {
+          config: this.config,
+          gowns: JSON.parse(localStorage.getItem('arabela_gowns') || '[]'),
+          reservations: JSON.parse(localStorage.getItem('arabela_reservations') || '[]'),
+          client_status: JSON.parse(localStorage.getItem('arabela_client_status') || '{}'),
+          client_phones: JSON.parse(localStorage.getItem('arabela_client_phones') || '{}'),
+          client_notes: JSON.parse(localStorage.getItem('arabela_client_notes') || '{}')
+        };
+        const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(data, null, 2));
+        const downloadNode = document.createElement('a');
+        downloadNode.setAttribute('href', dataStr);
+        downloadNode.setAttribute('download', 'arabela_backup_' + new Date().toISOString().split('T')[0] + '.json');
+        document.body.appendChild(downloadNode);
+        downloadNode.click();
+        downloadNode.remove();
+      },
+
+      importData(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            const data = JSON.parse(e.target.result);
+            if (data.config) localStorage.setItem('arabela_config', JSON.stringify(data.config));
+            if (data.gowns) localStorage.setItem('arabela_gowns', JSON.stringify(data.gowns));
+            if (data.reservations) localStorage.setItem('arabela_reservations', JSON.stringify(data.reservations));
+            if (data.client_status) localStorage.setItem('arabela_client_status', JSON.stringify(data.client_status));
+            localStorage.setItem('arabela_session_active', 'true');
+            alert('Database restored successfully. Reloading...');
+            window.location.reload();
+          } catch (err) {
+            alert('Error: Invalid backup file.');
+          }
+        };
+        reader.readAsText(file);
       }
     }"
     class="bg-white font-sans text-[#1A1A1A]"
@@ -45,72 +88,65 @@
 
         <main>
           <div class="p-6 mx-auto max-w-4xl md:p-10">
-            
-            <div class="mb-10 border-b border-[#F0EDE7] pb-8">
-              <h2 class="text-3xl font-bold uppercase tracking-[0.2em] font-serif">System Configuration</h2>
-              <p class="text-[10px] text-[#A8A297] font-bold uppercase tracking-[0.3em] mt-2">Global Parameters & Business Rules</p>
+            <div class="mb-10 border-b border-[#F0EDE7] pb-8 flex justify-between items-end">
+              <div>
+                <h2 class="text-3xl font-bold uppercase tracking-[0.2em] font-serif">System Settings</h2>
+                <p class="text-[10px] text-[#A8A297] font-bold uppercase tracking-[0.3em] mt-2">Global Parameters & Data Integrity</p>
+              </div>
+              <button @click="exportData()" class="bg-[#F9F5F0] border border-[#E5E1DA] px-6 py-2 text-[10px] font-bold uppercase tracking-widest hover:border-[#1A1A1A] transition-all">
+                Export Backup (.JSON)
+              </button>
             </div>
 
-            <form @submit.prevent="saveSettings()">
-              <div class="space-y-10">
-                
-                <div class="rounded-sm border border-[#E5E1DA] bg-white p-8 shadow-sm">
-                  <h3 class="text-xs font-serif font-bold uppercase tracking-[0.2em] mb-6 border-b border-[#F0EDE7] pb-4">Financial Parameters</h3>
-                  
-                  <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div>
-                      <label class="block text-[10px] font-bold text-[#A8A297] uppercase mb-2 tracking-widest">Standard Security Deposit (₱)</label>
-                      <input type="number" x-model="config.depositAmount" class="w-full border border-[#E5E1DA] bg-[#F9F5F0] p-4 font-bold text-[#1A1A1A] outline-none focus:border-[#1A1A1A] transition-colors">
-                      <p class="text-[9px] text-[#A8A297] mt-2 italic">Applied automatically to all new reservations.</p>
-                    </div>
-                    <div>
-                      <label class="block text-[10px] font-bold text-[#A8A297] uppercase mb-2 tracking-widest">Late Return Penalty (₱ / Day)</label>
-                      <input type="number" x-model="config.lateFeePerDay" class="w-full border border-[#E5E1DA] bg-[#F9F5F0] p-4 font-bold text-red-600 outline-none focus:border-[#1A1A1A] transition-colors">
-                      <p class="text-[9px] text-[#A8A297] mt-2 italic">Multiplier applied for every 24 hours past the deadline.</p>
-                    </div>
-                    <div>
-                      <label class="block text-[10px] font-bold text-[#A8A297] uppercase mb-2 tracking-widest">Flat Cleaning Fee (₱)</label>
-                      <input type="number" x-model="config.cleaningFee" class="w-full border border-[#E5E1DA] bg-[#F9F5F0] p-4 font-bold text-[#1A1A1A] outline-none focus:border-[#1A1A1A] transition-colors">
-                    </div>
-                    <div>
-                      <label class="block text-[10px] font-bold text-[#A8A297] uppercase mb-2 tracking-widest">Base Repair Fee (₱)</label>
-                      <input type="number" x-model="config.repairFeeMinimum" class="w-full border border-[#E5E1DA] bg-[#F9F5F0] p-4 font-bold text-[#1A1A1A] outline-none focus:border-[#1A1A1A] transition-colors">
-                    </div>
+            <form @submit.prevent="saveSettings()" class="space-y-10">
+              <div class="rounded-sm border border-[#E5E1DA] bg-white p-8 shadow-sm">
+                <h3 class="text-xs font-serif font-bold uppercase tracking-[0.2em] mb-6 border-b border-[#F0EDE7] pb-4">Financial Parameters</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div>
+                    <label class="block text-[10px] font-bold text-[#A8A297] uppercase mb-2 tracking-widest">Security Deposit (₱)</label>
+                    <input type="number" x-model="config.depositAmount" class="w-full border border-[#E5E1DA] bg-[#F9F5F0] p-4 font-bold outline-none focus:bg-white">
+                  </div>
+                  <div>
+                    <label class="block text-[10px] font-bold text-[#A8A297] uppercase mb-2 tracking-widest">Late Fee (₱ / Day)</label>
+                    <input type="number" x-model="config.lateFeePerDay" class="w-full border border-[#E5E1DA] bg-[#F9F5F0] p-4 font-bold text-red-600 outline-none focus:bg-white">
                   </div>
                 </div>
+              </div>
 
-                <div class="rounded-sm border border-[#E5E1DA] bg-white p-8 shadow-sm">
-                  <h3 class="text-xs font-serif font-bold uppercase tracking-[0.2em] mb-6 border-b border-[#F0EDE7] pb-4">Operational Guidelines</h3>
-                  
-                  <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div>
-                      <label class="block text-[10px] font-bold text-[#A8A297] uppercase mb-2 tracking-widest">Payment Window Limit (Hours)</label>
-                      <select x-model="config.paymentWindowHours" class="w-full border border-[#E5E1DA] bg-[#F9F5F0] p-4 font-bold text-[#1A1A1A] outline-none focus:border-[#1A1A1A]">
-                        <option value="3">3 Hours (Strict Hold)</option>
-                        <option value="12">12 Hours (Standard Hold)</option>
-                        <option value="24">24 Hours (Extended Hold)</option>
-                        <option value="48">48 Hours (Paper Default)</option>
-                      </select>
-                      <p class="text-[9px] text-yellow-600 mt-2 font-bold uppercase tracking-widest">Controls Auto-Expire Logic</p>
-                    </div>
-                    <div>
-                      <label class="block text-[10px] font-bold text-[#A8A297] uppercase mb-2 tracking-widest">Abuse Tolerance (Max Cancellations)</label>
-                      <input type="number" x-model="config.maxCancellations" class="w-full border border-[#E5E1DA] bg-[#F9F5F0] p-4 font-bold text-[#1A1A1A] outline-none focus:border-[#1A1A1A] transition-colors">
-                      <p class="text-[9px] text-[#A8A297] mt-2 italic">Triggers automatic account restriction warning.</p>
-                    </div>
+              <div class="rounded-sm border border-[#E5E1DA] bg-white p-8 shadow-sm">
+                <h3 class="text-xs font-serif font-bold uppercase tracking-[0.2em] mb-6 border-b border-[#F0EDE7] pb-4">Operational Rules</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div>
+                    <label class="block text-[10px] font-bold text-[#A8A297] uppercase mb-2 tracking-widest">Payment Window (Hours)</label>
+                    <select x-model="config.paymentWindowHours" class="w-full border border-[#E5E1DA] bg-[#F9F5F0] p-4 font-bold outline-none">
+                      <option value="3">3 Hours</option>
+                      <option value="24">24 Hours</option>
+                      <option value="48">48 Hours (Standard)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="block text-[10px] font-bold text-[#A8A297] uppercase mb-2 tracking-widest">Abuse Flagging (Cancellations)</label>
+                    <input type="number" x-model="config.maxCancellations" class="w-full border border-[#E5E1DA] bg-[#F9F5F0] p-4 font-bold outline-none">
                   </div>
                 </div>
+              </div>
 
+              <div class="flex justify-between items-center bg-red-50 p-6 border border-red-100 rounded-sm mt-10">
+                <div>
+                  <h4 class="text-[10px] font-black text-red-700 uppercase tracking-widest">Database Restoration</h4>
+                  <p class="text-[9px] text-red-600 uppercase font-bold mt-1">Upload a backup file to restore system state.</p>
+                </div>
+                <input type="file" id="importFile" accept=".json" @change="importData($event)" class="hidden">
+                <button type="button" @click="document.getElementById('importFile').click()" class="bg-red-600 text-white px-8 py-3 text-[9px] font-bold uppercase tracking-widest hover:bg-red-700">Import Backup</button>
               </div>
 
               <div class="mt-10 flex justify-end">
-                <button type="submit" :disabled="isSaving" class="bg-[#1A1A1A] text-white px-12 py-4 text-[10px] font-bold uppercase tracking-[0.2em] rounded shadow-xl hover:bg-opacity-90 transition-all disabled:opacity-50 flex items-center gap-2">
-                  <span x-show="!isSaving">Save Configuration</span>
-                  <span x-show="isSaving" x-cloak>Applying Updates...</span>
+                <button type="submit" :disabled="isSaving" class="bg-[#1A1A1A] text-white px-12 py-4 text-[10px] font-bold uppercase tracking-[0.2em] rounded shadow-xl disabled:opacity-50">
+                  <span x-show="!isSaving">Save All Changes</span>
+                  <span x-show="isSaving" x-cloak>Syncing Parameters...</span>
                 </button>
               </div>
             </form>
-
           </div>
         </main>
       </div>

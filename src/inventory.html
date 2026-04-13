@@ -6,7 +6,6 @@
     <title>Asset Inventory | Arabela Admin</title>
     <script src="js/database.js"></script>
     <script>
-      // Security Guard: Kick to login if session missing
       if (localStorage.getItem('arabela_session_active') !== 'true') {
         window.location.replace('login.html');
       }
@@ -24,7 +23,7 @@
       'gowns': [],
       'statusFilter': 'All',
       'searchQuery': '',
-      'newGown': { name: '', size: 'Free Size', category: 'Standard' },
+      'newGown': { name: '', size: 'Free Size', category: 'Standard', price: '' },
 
       init() {
         this.gowns = ArabelaDB.getGowns();
@@ -41,6 +40,7 @@
 
       saveGown() {
         if (!this.newGown.name) return alert('Design name is required');
+        if (!this.newGown.price || isNaN(this.newGown.price)) return alert('Valid price is required');
         
         const newId = 'ARB-' + Math.floor(1000 + Math.random() * 9000);
         const entry = {
@@ -48,22 +48,21 @@
           name: this.newGown.name,
           size: this.newGown.size,
           category: this.newGown.category,
+          price: parseFloat(this.newGown.price).toFixed(2),
           status: 'Available'
         };
 
-        // Fix: Update local array and database simultaneously
         this.gowns = [...this.gowns, entry];
         ArabelaDB.saveGowns(this.gowns);
         
         this.showModal = false;
-        this.newGown = { name: '', size: 'Free Size', category: 'Standard' };
+        this.newGown = { name: '', size: 'Free Size', category: 'Standard', price: '' };
       },
 
       updateStatus(gown, newStatus) {
         if (!newStatus) return;
         gown.status = newStatus;
         ArabelaDB.saveGowns(this.gowns);
-        // Refresh local gowns to ensure reactivity
         this.gowns = ArabelaDB.getGowns();
       },
 
@@ -118,9 +117,10 @@
                 <div class="grid grid-cols-12 bg-[#F9F5F0] border-b border-[#E5E1DA] text-[11px] font-bold uppercase tracking-[0.2em] text-[#A8A297]">
                   <div class="p-6 col-span-3">Asset Identity</div>
                   <div class="p-6 col-span-2 text-center">Category</div>
-                  <div class="p-6 col-span-2 text-center">Size Details</div>
+                  <div class="p-6 col-span-1 text-center">Size</div>
+                  <div class="p-6 col-span-2 text-center">Price</div>
                   <div class="p-6 col-span-2 text-center">Current Status</div>
-                  <div class="p-6 col-span-3 text-center">Control Actions</div>
+                  <div class="p-6 col-span-2 text-center">Control Actions</div>
                 </div>
 
                 <template x-for="gown in filteredGowns" :key="gown.id">
@@ -135,8 +135,12 @@
                       <p class="text-[10px] font-black text-[#1A1A1A] uppercase tracking-widest border border-[#E5E1DA] py-1 px-3 inline-block rounded" x-text="gown.category || 'Standard'"></p>
                     </div>
 
-                    <div class="p-8 col-span-2 text-center">
+                    <div class="p-8 col-span-1 text-center">
                       <p class="text-xs font-bold text-[#1A1A1A]" x-text="gown.size"></p>
+                    </div>
+
+                    <div class="p-8 col-span-2 text-center">
+                      <p class="text-sm font-bold text-[#1A1A1A]">₱<span x-text="gown.price"></span></p>
                     </div>
 
                     <div class="p-8 col-span-2 text-center">
@@ -150,17 +154,17 @@
                             x-text="gown.status"></span>
                     </div>
 
-                    <div class="p-8 col-span-3 flex justify-center gap-3">
+                    <div class="p-8 col-span-2 flex justify-center gap-2">
                       <template x-if="gown.status !== 'On Rent' && gown.status !== 'Reserved'">
-                        <select @change="updateStatus(gown, $event.target.value)" class="border border-[#E5E1DA] text-[9px] font-bold uppercase tracking-widest p-2 outline-none cursor-pointer hover:border-[#1A1A1A]">
-                          <option value="">Update State</option>
-                          <option value="Available" :disabled="gown.status === 'Available'">Mark Available</option>
-                          <option value="Damaged" :disabled="gown.status === 'Damaged'">Send to Maintenance</option>
+                        <select @change="updateStatus(gown, $event.target.value)" class="border border-[#E5E1DA] text-[9px] font-bold uppercase tracking-widest p-2 outline-none cursor-pointer hover:border-[#1A1A1A] w-full max-w-[100px]">
+                          <option value="">State</option>
+                          <option value="Available" :disabled="gown.status === 'Available'">Available</option>
+                          <option value="Damaged" :disabled="gown.status === 'Damaged'">Maintenance</option>
                         </select>
                       </template>
                       
                       <template x-if="gown.status !== 'On Rent' && gown.status !== 'Reserved'">
-                        <button @click="deleteGown(gown.id)" class="bg-red-50 text-red-600 border border-red-200 px-4 py-2 text-[9px] font-bold uppercase tracking-widest hover:bg-red-600 hover:text-white transition-colors">
+                        <button @click="deleteGown(gown.id)" class="bg-red-50 text-red-600 border border-red-200 px-3 py-2 text-[9px] font-bold uppercase tracking-widest hover:bg-red-600 hover:text-white transition-colors">
                           Drop
                         </button>
                       </template>
@@ -202,7 +206,7 @@
               <option value="Standard">Standard Rent</option>
             </select>
           </div>
-          <div class="mb-10">
+          <div class="mb-6">
             <label class="block text-[10px] font-bold text-[#A8A297] uppercase mb-2 tracking-widest">Physical Size</label>
             <select x-model="newGown.size" class="w-full border border-[#E5E1DA] p-4 text-sm outline-none focus:border-[#1A1A1A] bg-transparent">
               <option value="Small">Small</option>
@@ -211,6 +215,10 @@
               <option value="Free Size">Free Size</option>
               <option value="Custom Fit">Custom Fit</option>
             </select>
+          </div>
+          <div class="mb-10">
+            <label class="block text-[10px] font-bold text-[#A8A297] uppercase mb-2 tracking-widest">Rental Price (₱)</label>
+            <input x-model="newGown.price" type="number" step="0.01" required class="w-full border border-[#E5E1DA] p-4 text-sm focus:border-[#1A1A1A] outline-none" placeholder="0.00">
           </div>
           <div class="flex gap-4">
             <button type="button" @click="showModal = false" class="flex-1 border border-[#E5E1DA] p-4 text-[10px] font-bold uppercase tracking-widest hover:bg-gray-50">Cancel</button>

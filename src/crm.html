@@ -8,39 +8,68 @@
     <style>
       .font-serif { font-family: 'Times', serif; }
       [x-cloak] { display: none !important; }
+      .no-scrollbar::-webkit-scrollbar { display: none; }
     </style>
   </head>
   <body
     x-data="{ 
       'sidebarToggle': false,
+      'showProfileModal': false,
+      'selectedClient': null,
       'reservations': ArabelaDB.getReservations(),
       'clientStatuses': JSON.parse(localStorage.getItem('arabela_client_status')) || {},
+      'clientPhones': JSON.parse(localStorage.getItem('arabela_client_phones')) || {},
+      'clientNotes': JSON.parse(localStorage.getItem('arabela_client_notes')) || {},
       
-      // Dynamic CRM Generation
+      generatePhone() {
+        const randomNum = Math.floor(100000000 + Math.random() * 900000000).toString();
+        return '+63 9' + randomNum.substring(0,2) + ' ' + randomNum.substring(2,5) + ' ' + randomNum.substring(5);
+      },
+
+      savePhones() {
+        localStorage.setItem('arabela_client_phones', JSON.stringify(this.clientPhones));
+      },
+
+      saveNotes() {
+        if(this.selectedClient) {
+          this.clientNotes[this.selectedClient.name] = this.selectedClient.note;
+          localStorage.setItem('arabela_client_notes', JSON.stringify(this.clientNotes));
+        }
+      },
+
       get clients() {
         const clientMap = {};
+        let phonesUpdated = false;
         
         this.reservations.forEach(r => {
-          if (!clientMap[r.name]) {
-            clientMap[r.name] = {
-              id: 'C-' + r.name.substring(0,3).toUpperCase() + r.id.toString().substring(0,3),
-              name: r.name,
-              phone: 'Record on File',
+          const clientName = r.name.trim();
+
+          if (!clientMap[clientName]) {
+            if (!this.clientPhones[clientName]) {
+              this.clientPhones[clientName] = this.generatePhone();
+              phonesUpdated = true;
+            }
+
+            clientMap[clientName] = {
+              id: 'C-' + clientName.substring(0,3).toUpperCase() + r.id.toString().substring(0,3),
+              name: clientName,
+              phone: this.clientPhones[clientName],
               totalRents: 0,
               cancellations: 0,
-              status: this.clientStatuses[r.name] || 'Active'
+              status: this.clientStatuses[clientName] || 'Active'
             };
           }
           
           if (r.status === 'Completed' || r.status === 'On Rent' || r.status === 'Approved') {
-            clientMap[r.name].totalRents++;
+            clientMap[clientName].totalRents++;
           }
           if (r.status === 'Canceled') {
-            clientMap[r.name].cancellations++;
+            clientMap[clientName].cancellations++;
           }
         });
 
-        // Auto-Flagging Logic
+        if (phonesUpdated) this.savePhones();
+
         Object.values(clientMap).forEach(client => {
           if (client.cancellations > 2 && client.status === 'Active') {
              client.status = 'Warning';
@@ -69,8 +98,14 @@
         if (client.status !== 'Restricted') {
           this.clientStatuses[client.name] = 'Warning';
           this.saveStatuses();
-          alert('Warning protocol initiated for ' + client.name);
         }
+      },
+
+      openProfile(client) {
+        this.selectedClient = client;
+        this.selectedClient.history = this.reservations.filter(r => r.name.trim() === client.name);
+        this.selectedClient.note = this.clientNotes[client.name] || '';
+        this.showProfileModal = true;
       }
     }"
     class="bg-white font-sans text-[#1A1A1A]"
@@ -108,9 +143,9 @@
                   <div class="p-6 col-span-3">Client Profile</div>
                   <div class="p-6 col-span-2 text-center">Contact</div>
                   <div class="p-6 col-span-2 text-center">Lifetime Rentals</div>
-                  <div class="p-6 col-span-2 text-center">Cancellation Rate</div>
+                  <div class="p-6 col-span-2 text-center">Cancellations</div>
                   <div class="p-6 col-span-1 text-center">Status</div>
-                  <div class="p-6 col-span-2 text-center">Account Control</div>
+                  <div class="p-6 col-span-2 text-right">Account Control</div>
                 </div>
 
                 <template x-for="client in clients" :key="client.id">
@@ -148,15 +183,20 @@
                             x-text="client.status"></span>
                     </div>
 
-                    <div class="p-8 col-span-2 flex flex-col gap-2 items-center">
+                    <div class="p-8 col-span-2 flex justify-end gap-2">
+                      <button @click="openProfile(client)" class="bg-[#F9F5F0] border border-[#E5E1DA] text-[#1A1A1A] px-4 py-2 text-[9px] font-bold uppercase tracking-widest rounded shadow-sm hover:border-[#1A1A1A] transition-all">
+                        View Profile
+                      </button>
+                      
                       <template x-if="client.status !== 'Restricted'">
-                        <div class="w-full space-y-2">
-                          <button @click="issueWarning(client)" class="w-full border border-yellow-500 text-yellow-600 py-2 text-[9px] font-bold uppercase tracking-widest rounded shadow-sm hover:bg-yellow-50 transition-all">Issue Warning</button>
-                          <button @click="toggleRestriction(client)" class="w-full bg-red-600 text-white py-2 text-[9px] font-bold uppercase tracking-widest rounded shadow-sm hover:bg-red-700 transition-all">Restrict Account</button>
-                        </div>
+                        <button @click="toggleRestriction(client)" class="bg-white border border-red-200 text-red-600 px-4 py-2 text-[9px] font-bold uppercase tracking-widest rounded shadow-sm hover:bg-red-50 transition-all">
+                          Restrict
+                        </button>
                       </template>
                       <template x-if="client.status === 'Restricted'">
-                        <button @click="toggleRestriction(client)" class="w-full bg-[#1A1A1A] text-white py-2 text-[9px] font-bold uppercase tracking-widest rounded shadow-sm hover:bg-opacity-80 transition-all">Lift Restriction</button>
+                        <button @click="toggleRestriction(client)" class="bg-[#1A1A1A] text-white px-4 py-2 text-[9px] font-bold uppercase tracking-widest rounded shadow-sm hover:bg-opacity-80 transition-all">
+                          Lift Ban
+                        </button>
                       </template>
                     </div>
 
@@ -173,6 +213,58 @@
             </div>
           </div>
         </main>
+      </div>
+    </div>
+
+    <div x-show="showProfileModal" class="fixed inset-0 z-999 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" x-cloak>
+      <div @click.outside="showProfileModal = false" class="w-full max-w-3xl bg-white rounded shadow-2xl flex flex-col max-h-[90vh]">
+        
+        <template x-if="selectedClient">
+          <div class="flex flex-col h-full">
+            
+            <div class="p-8 border-b border-[#F0EDE7] flex justify-between items-start bg-[#F9F5F0]">
+              <div>
+                <h3 class="font-serif font-bold text-[#1A1A1A] uppercase tracking-[0.2em] text-2xl" x-text="selectedClient.name"></h3>
+                <p class="text-[10px] font-mono font-bold text-[#A8A297] uppercase tracking-widest mt-2" x-text="'SYS-ID: ' + selectedClient.id + ' | PHONE: ' + selectedClient.phone"></p>
+              </div>
+              <button @click="showProfileModal = false" class="text-[#A8A297] hover:text-[#1A1A1A] font-bold text-xl">&times;</button>
+            </div>
+
+            <div class="p-8 overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-8">
+              
+              <div>
+                <h4 class="text-[10px] font-black text-[#1A1A1A] uppercase tracking-widest mb-4 border-b border-[#F0EDE7] pb-2">Rental Ledger</h4>
+                <div class="space-y-3">
+                  <template x-for="res in selectedClient.history" :key="res.id">
+                    <div class="p-4 border border-[#E5E1DA] rounded-sm bg-white shadow-sm flex flex-col gap-2">
+                      <div class="flex justify-between items-center">
+                        <span class="text-xs font-bold text-[#1A1A1A]" x-text="res.gown"></span>
+                        <span class="text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded border"
+                              :class="{
+                                'bg-green-50 text-green-600 border-green-200': res.status === 'Completed',
+                                'bg-yellow-50 text-yellow-600 border-yellow-200': res.status === 'Pending' || res.status === 'Approved',
+                                'bg-blue-50 text-blue-600 border-blue-200': res.status === 'On Rent',
+                                'bg-red-50 text-red-600 border-red-200': res.status === 'Canceled'
+                              }"
+                              x-text="res.status"></span>
+                      </div>
+                      <p class="text-[9px] text-[#A8A297] font-mono uppercase">Log: <span x-text="new Date(res.createdAt).toLocaleDateString('en-GB')"></span></p>
+                    </div>
+                  </template>
+                </div>
+              </div>
+
+              <div>
+                <h4 class="text-[10px] font-black text-[#1A1A1A] uppercase tracking-widest mb-4 border-b border-[#F0EDE7] pb-2">Internal Remarks</h4>
+                <textarea x-model="selectedClient.note" @input="saveNotes()" 
+                          class="w-full h-48 border border-[#E5E1DA] p-4 text-sm outline-none focus:border-[#1A1A1A] bg-[#F9F5F0] resize-none" 
+                          placeholder="Add operational notes, measurements, or behavior warnings here..."></textarea>
+                <p class="text-[8px] text-[#A8A297] uppercase tracking-widest mt-2 font-bold text-right">Autosaves on type</p>
+              </div>
+
+            </div>
+          </div>
+        </template>
       </div>
     </div>
   </body>
