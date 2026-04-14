@@ -147,6 +147,21 @@
                             ArabelaDB.syncGownStatus(res.gownId, 'Available');
                         }
                     }
+                },
+
+                // NEW FUNCTION: Completely removes the canceled record from the database array
+                removeReservation(res) {
+                    if (confirm('Are you sure you want to permanently remove this canceled record?')) {
+                        const targetIndex = this.reservations.findIndex(r => String(r.id) === String(res.id));
+                        
+                        if (targetIndex !== -1) {
+                            this.reservations.splice(targetIndex, 1);
+                            
+                            if (typeof ArabelaDB !== 'undefined') {
+                                ArabelaDB.saveReservations(this.reservations);
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -230,6 +245,12 @@
                                             <div class="flex flex-col w-full gap-2">
                                                 <button @click="releaseToClient(res)" class="w-full bg-[#1A1A1A] text-white py-2 text-[10px] font-bold uppercase rounded shadow-md hover:bg-opacity-80">Release to Client</button>
                                                 <button @click="rejectReservation(res)" class="text-[9px] font-black text-[#A8A297] hover:text-red-600 uppercase tracking-widest mt-1">Cancel</button>
+                                            </div>
+                                        </template>
+
+                                        <template x-if="res.status === 'Canceled'">
+                                            <div class="flex flex-col w-full gap-2">
+                                                <button @click="removeReservation(res)" class="w-full bg-red-600 text-white py-2 text-[10px] font-bold uppercase rounded shadow-sm hover:bg-red-700">Remove</button>
                                             </div>
                                         </template>
                                     </div>
