@@ -1,9 +1,33 @@
-<header class="sticky top-0 z-999 flex w-full bg-white drop-shadow-1">
+<header class="sticky top-0 z-[999] flex w-full bg-white drop-shadow-1"
+  x-data="{
+    dropdownOpen: false,
+    adminName: 'Jose Miguel Tolentino',
+    adminRole: 'Administrator',
+    initials: 'JMT',
+    
+    init() {
+      this.loadProfile();
+      // Listens for cross-tab updates and same-page dispatches
+      window.addEventListener('storage', () => this.loadProfile());
+      window.addEventListener('profile-updated', () => this.loadProfile());
+    },
+    
+    loadProfile() {
+      const profile = JSON.parse(localStorage.getItem('arabela_admin_profile'));
+      
+      // We check for profile.name because that is what profile.html saves it as
+      if (profile && profile.name) {
+        this.adminName = profile.name;
+        // Extracts the first letter of each word for the avatar bubble (max 3 letters)
+        this.initials = profile.name.split(' ').map(n => n[0]).join('').substring(0, 3).toUpperCase();
+      }
+    }
+  }">
   <div class="flex flex-grow items-center justify-between px-4 py-4 shadow-2 md:px-6 2xl:px-11 border-b border-[#F0EDE7]">
     
     <div class="flex items-center gap-2 sm:gap-4">
       <button
-        class="z-99999 block rounded-sm border border-stroke bg-white p-1.5 shadow-sm lg:hidden"
+        class="z-[99999] block rounded-sm border border-[#E5E1DA] bg-white p-1.5 shadow-sm lg:hidden"
         @click.stop="sidebarToggle = !sidebarToggle"
       >
         <span class="relative block h-5.5 w-5.5 cursor-pointer">
@@ -41,18 +65,16 @@
         </li>
       </ul>
 
-      <div class="relative" x-data="{ dropdownOpen: false }" @click.outside="dropdownOpen = false">
+      <div class="relative" @click.outside="dropdownOpen = false">
         <button @click="dropdownOpen = !dropdownOpen" class="flex items-center gap-4 focus:outline-none">
           <span class="hidden text-right lg:block">
-            <span class="block text-[10px] font-bold text-[#1A1A1A] uppercase tracking-widest">Jose Miguel Tolentino C.</span>
-            <span class="block text-[8px] font-medium text-[#A8A297] uppercase tracking-widest">Administrator</span>
+            <span class="block text-[10px] font-bold text-[#1A1A1A] uppercase tracking-widest" x-text="adminName"></span>
+            <span class="block text-[8px] font-medium text-[#A8A297] uppercase tracking-widest" x-text="adminRole"></span>
           </span>
-          <span class="h-12 w-12 rounded-full bg-[#1A1A1A] flex items-center justify-center text-white text-xs font-serif">
-            JMT
-          </span>
+          <span class="h-12 w-12 rounded-full bg-[#1A1A1A] flex items-center justify-center text-white text-xs font-serif shadow-sm transition-transform hover:scale-105" x-text="initials"></span>
         </button>
 
-        <div x-show="dropdownOpen" x-cloak class="absolute right-0 mt-4 flex w-62.5 flex-col rounded-sm border border-[#E5E1DA] bg-white shadow-default">
+        <div x-show="dropdownOpen" x-cloak class="absolute right-0 mt-4 flex w-62.5 flex-col rounded-sm border border-[#E5E1DA] bg-white shadow-lg">
           <ul class="flex flex-col gap-5 border-b border-[#F0EDE7] px-6 py-7.5">
             <li>
               <a href="profile.html" class="flex items-center gap-3.5 text-sm font-medium duration-300 ease-in-out hover:text-[#1A1A1A] lg:text-base">
@@ -62,11 +84,12 @@
           </ul>
           <button 
             onclick="localStorage.removeItem('arabela_session_active'); window.location.replace('login.html');" 
-            class="flex items-center gap-3.5 px-6 py-4 text-[10px] font-bold text-red-600 uppercase tracking-widest hover:bg-red-50 transition-colors">
+            class="flex items-center w-full text-left gap-3.5 px-6 py-4 text-[10px] font-bold text-red-600 uppercase tracking-widest hover:bg-red-50 transition-colors">
             Terminate Session
           </button>
         </div>
       </div>
-      </div>
+      
+    </div>
   </div>
 </header>

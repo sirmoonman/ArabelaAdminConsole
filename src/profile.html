@@ -20,7 +20,6 @@
       'sidebarToggle': false,
       'isSaving': false,
       
-      // PERSISTENCE: Initialize from storage or capstone defaults
       'admin': JSON.parse(localStorage.getItem('arabela_admin_profile')) || {
         id: 'EMP-001',
         name: 'Jose Miguel Tolentino C.',
@@ -36,7 +35,6 @@
         confirm: ''
       },
 
-      // Audit Trail matches capstone requirement for transparency [cite: 257]
       'activityLog': [
         { action: 'Approved Payment', target: 'Ref: ARB-9102', time: '10 mins ago', type: 'success' },
         { action: 'Updated Settings', target: 'Global Parameters', time: '1 hour ago', type: 'warning' },
@@ -48,10 +46,14 @@
       saveProfile() {
         this.isSaving = true;
         setTimeout(() => {
+          // 1. Commit to storage
           localStorage.setItem('arabela_admin_profile', JSON.stringify(this.admin));
+          
+          // 2. Dispatch cross-component synchronization event
+          window.dispatchEvent(new Event('profile-updated'));
+          
           this.isSaving = false;
           alert('SYSTEM NOTIFICATION: Identity updated. Session persistence active.');
-          window.location.reload(); // Force header refresh
         }, 800);
       },
 
@@ -78,7 +80,7 @@
         <include src="./partials/header.html" />
 
         <main>
-          <div class="p-6 mx-auto max-w-(--breakpoint-2xl) md:p-10">
+          <div class="p-6 mx-auto max-w-[1400px] md:p-10">
             
             <div class="mb-10 border-b border-[#F0EDE7] pb-8">
               <h2 class="text-3xl font-bold uppercase tracking-[0.2em] font-serif">Administrator Profile</h2>
