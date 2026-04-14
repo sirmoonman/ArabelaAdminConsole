@@ -12,7 +12,7 @@
       "name": "Midnight Velvet Mermaid",
       "category": "Evening",
       "price": 4500,
-      "status": "On Rent"
+      "status": "Available"
     },
     {
       "id": "GW-203",
@@ -26,14 +26,14 @@
       "name": "Traditional Piña Filipiñana",
       "category": "Formal",
       "price": 5500,
-      "status": "Reserved"
+      "status": "Available"
     },
     {
       "id": "GW-205",
       "name": "Emerald Glitz A-Line",
       "category": "Evening",
       "price": 3800,
-      "status": "Damaged"
+      "status": "Available"
     },
     {
       "id": "GW-206",
@@ -47,7 +47,7 @@
       "name": "Celestial Starry Night",
       "category": "Debut",
       "price": 8500,
-      "status": "Stained"
+      "status": "Available"
     },
     {
       "id": "GW-208",
